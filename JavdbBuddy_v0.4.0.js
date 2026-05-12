@@ -11,7 +11,6 @@
 // @match        *://*.javdb.com/*
 // @match        *://*.javdb001.com/*
 // @match        *://*.javdb521.com/*
-// @match        *://sehuatang.net/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
