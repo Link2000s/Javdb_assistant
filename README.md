@@ -1,7 +1,7 @@
 # JavdbBuddy (Javdb全能助手)
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/86168057/javdb-all-in-one-assistant/releases)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/86168057/JavdbBuddy/releases)
 [![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-JavdbBuddy-orange)](https://greasyfork.org/scripts/564141)
 
 JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步、预览图查看、磁力链管理、多站点快捷搜索等功能。
@@ -30,11 +30,11 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 前往 [Greasy Fork 页面](https://greasyfork.org/scripts/564141) 点击安装。
 
 ### 方法二：GitHub Releases
-从 [Releases 页面](https://github.com/86168057/javdb-all-in-one-assistant/releases) 下载最新版本，在 Tampermonkey 中通过"从文件导入"安装。
+从 [Releases 页面](https://github.com/86168057/JavdbBuddy/releases) 下载最新版本，在 Tampermonkey 中通过"从文件导入"安装。
 
 ### 方法三：手动安装
 1. 安装 [Tampermonkey](https://www.tampermonkey.net/) 浏览器扩展
-2. 打开 [JavdbBuddy.user.js](https://github.com/86168057/javdb-all-in-one-assistant/raw/main/JavdbBuddy_v0.3.0.js)
+2. 打开 [JavdbBuddy.user.js](https://github.com/86168057/JavdbBuddy/raw/main/JavdbBuddy_v0.4.0.js)
 3. Tampermonkey 自动弹出安装提示
 
 ---
@@ -80,7 +80,7 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 ## 📄 脚本说明
 
 - **脚本名**: JavdbBuddy (Javdb全能助手)
-- **版本**: 0.3.0
+- **版本**: 0.4.0
 - **适用站点**: javdb.com, sehuatang.net
 - **依赖**: 需要 Tampermonkey / Violentmonkey 等用户脚本管理器
 - **许可**: MIT License
@@ -104,6 +104,9 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 ---
 
 ## 📜 更新日志
+
+### v0.4.0
+- 🔧 优化：仓库重命名为 JavdbBuddy，更新所有链接地址
 
 ### v0.3.0
 - ✨ 新增：短评查看功能（列表页 📝 按钮）
