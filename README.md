@@ -43,26 +43,26 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 
 ### 列表页
 
-![列表页快捷按钮效果展示](展示图/列表页快捷按钮效果展示.png)
+![列表页快捷按钮效果展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页快捷按钮效果展示.png)
 
 - **小蓝按钮 🖼️ 预览图**：点击弹窗查看所有预览图
 - **小粉按钮 🧲 磁力链**：点击弹窗查看 JAVDB + JAVBUS 双标签磁力链
 - **小橙按钮 📝 短评**：点击获取影片短评
 
-![“预览图+演员名字”快捷按钮内容展示](展示图/“预览图+演员名字”快捷按钮内容展示.png)
+![“预览图+演员名字”快捷按钮内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/“预览图+演员名字”快捷按钮内容展示.png)
 
-![“磁力链+演员名字”快捷按钮内容展示](展示图/“磁力链+演员名字”快捷按钮内容展示.png)
+![“磁力链+演员名字”快捷按钮内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/“磁力链+演员名字”快捷按钮内容展示.png)
 
-![“短评”快捷按钮内容展示](展示图/“短评”快捷按钮内容展示.png)
+![“短评”快捷按钮内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/“短评”快捷按钮内容展示.png)
 
 ### 详情页
 
-![详情页搜索按钮+emby入库状态展示](展示图/详情页搜索按钮+emby入库状态展示.png)
+![详情页搜索按钮+emby入库状态展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页搜索按钮+emby入库状态展示.png)
 
 - **Emby 状态标签**：显示该影片的 Emby 入库状态
 - **多站点搜索按钮**：一键在多个平台搜索该影片
 
-![详情页“javdb+javbus”双标签磁力页展示](展示图/详情页“javdb+javbus”双标签磁力页展示.png)
+![详情页“javdb+javbus”双标签磁力页展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页“javdb+javbus”双标签磁力页展示.png)
 
 - **JAVDB / JAVBUS 双标签**：点击切换不同来源的磁力链列表
 
@@ -99,7 +99,7 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 
 | 微信 | 支付宝 |
 |------|--------|
-| ![微信收款二维码](收款二维码/微信收款二维码.png) | ![支付宝收款二维码](收款二维码/支付宝收款二维码.png) |
+| ![微信收款二维码](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/收款二维码/微信收款二维码.png) | ![支付宝收款二维码](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/收款二维码/支付宝收款二维码.png) |
 
 ---
 
