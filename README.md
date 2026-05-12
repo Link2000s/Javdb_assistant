@@ -34,7 +34,7 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 
 ### 方法三：手动安装
 1. 安装 [Tampermonkey](https://www.tampermonkey.net/) 浏览器扩展
-2. 打开 [JavdbBuddy.user.js](https://github.com/86168057/JavdbBuddy/raw/main/JavdbBuddy_v0.4.0.js)
+2. 打开 [JavdbBuddy_v0.4.0.js](https://github.com/86168057/JavdbBuddy/raw/main/JavdbBuddy_v0.4.0.js)
 3. Tampermonkey 自动弹出安装提示
 
 ---

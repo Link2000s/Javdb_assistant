@@ -25,8 +25,8 @@
 // @run-at       document-idle
 // @license      MIT
 // @homepage     https://github.com/86168057/JavdbBuddy
-// @downloadURL https://github.com/86168057/JavdbBuddy/releases/latest/download/JavdbBuddy.user.js
-// @updateURL https://github.com/86168057/JavdbBuddy/releases/latest/download/JavdbBuddy.meta.js
+// @downloadURL https://github.com/86168057/JavdbBuddy/releases/latest/download/JavdbBuddy_v0.4.0.js
+// @updateURL https://github.com/86168057/JavdbBuddy/releases/latest/download/JavdbBuddy_v0.4.0.js
 // ==/UserScript==
 
 (function() {
