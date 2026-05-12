@@ -1,12 +1,12 @@
-# JavdbBuddy (Javdb全能助手)
+# Javdb全能助手（JavdbBuddy）
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/86168057/JavdbBuddy/releases)
-[![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-JavdbBuddy-orange)](https://greasyfork.org/scripts/564141)
+[![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-Javdb全能助手-orange)](https://greasyfork.org/scripts/564141)
 
 JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步、预览图查看、磁力链管理、多站点快捷搜索等功能。
 
-> **English**: JAVDB All-in-One Assistant Tampermonkey userscript with Emby library sync, preview viewer, magnet links, and multi-site search.
+> **English**: JavdbBuddy - JAVDB All-in-One Assistant Tampermonkey userscript. Features: Emby library sync, preview image viewer, magnet link management, multi-site quick search, and more.
 
 ---
 
@@ -79,7 +79,7 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 
 ## 📄 脚本说明
 
-- **脚本名**: JavdbBuddy (Javdb全能助手)
+- **脚本名**: Javdb全能助手（JavdbBuddy）
 - **版本**: 0.4.0
 - **适用站点**: javdb.com
 - **依赖**: 需要 Tampermonkey / Violentmonkey 等用户脚本管理器
