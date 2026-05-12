@@ -2,7 +2,7 @@
 // @name         Javdb全能助手
 // @name:en      JavdbBuddy
 // @namespace    https://github.com/86168057/JavdbBuddy
-// @version      0.4.1
+// @version      0.4.0
 // @description  JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步、预览图查看、磁力链管理、多站点快捷搜索等功能。
 // @description:en  JavdbBuddy - JAVDB All-in-One Assistant: Emby library sync, preview images, magnet links, multi-site search
 // @description:zh-CN  JAVDB + EMBY 联动脚本：实时同步入库状态、预览图查看、磁力链管理、多站点搜索
