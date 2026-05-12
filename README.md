@@ -81,7 +81,7 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 
 - **脚本名**: JavdbBuddy (Javdb全能助手)
 - **版本**: 0.4.0
-- **适用站点**: javdb.com, sehuatang.net
+- **适用站点**: javdb.com
 - **依赖**: 需要 Tampermonkey / Violentmonkey 等用户脚本管理器
 - **许可**: MIT License
 
