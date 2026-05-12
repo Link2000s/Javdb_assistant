@@ -1,0 +1,6 @@
+# Playwright MCP cache
+.playwright-mcp/
+
+# OS files
+Thumbs.db
+.DS_Store
