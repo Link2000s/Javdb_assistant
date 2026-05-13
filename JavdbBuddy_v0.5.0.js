@@ -2966,35 +2966,46 @@
         const panels = doc.querySelectorAll('.panel-block, .movie-panel-info .panel-block');
         for (let panel of panels) {
             const strong = panel.querySelector('strong');
-            if (strong && (strong.textContent.includes('演員') || strong.textContent.includes('演员'))) {
-                const actorLinks = panel.querySelectorAll('a');
-                actorLinks.forEach(link => {
-                    const text = link.textContent.trim();
-                    if (text) {
-                        // 检测性别标记
-                        let gender = 'unknown';
-                        if (text.includes('♀')) gender = 'female';
-                        if (text.includes('♂')) gender = 'male';
-                        const cleanName = text.replace(/[♀♂]/g, '').trim();
-                        if (cleanName.length > 0) {
-                            const href = link.getAttribute('href');
-                            const fullUrl = href ? (href.startsWith('http') ? href : new URL(href, 'https://javdb.com').href) : null;
-                            actors.push({ name: cleanName, url: fullUrl, gender: gender });
-                        }
-                    }
-                });
-                // 如果通过链接没找到，检查 .value 容器
-                if (actorLinks.length === 0) {
-                    const label = panel.querySelector('.value');
-                    if (label) {
-                        const text = label.textContent.trim();
-                        if (text) {
-                            actors.push({ name: text, url: null, gender: 'unknown' });
-                        }
+            if (!strong) continue;
+            const label = strong.textContent;
+            
+            // 检测面板类型：女性演员/男优
+            let defaultGender = 'unknown';
+            if (label.includes('演員') || label.includes('演员')) {
+                defaultGender = 'female';
+            } else if (label.includes('男優') || label.includes('男优')) {
+                defaultGender = 'male';
+            } else {
+                continue; // 不相关面板跳过
+            }
+            
+            const actorLinks = panel.querySelectorAll('a');
+            actorLinks.forEach(link => {
+                const text = link.textContent.trim();
+                if (text) {
+                    // 检测文本中的性别标记
+                    let gender = defaultGender;
+                    if (text.includes('♂')) gender = 'male';
+                    else if (text.includes('♀')) gender = 'female';
+                    const cleanName = text.replace(/[♀♂]/g, '').trim();
+                    if (cleanName.length > 0) {
+                        const href = link.getAttribute('href');
+                        const fullUrl = href ? (href.startsWith('http') ? href : new URL(href, 'https://javdb.com').href) : null;
+                        actors.push({ name: cleanName, url: fullUrl, gender: gender });
                     }
                 }
-                break;
+            });
+            // 如果通过链接没找到，检查 .value 容器
+            if (actorLinks.length === 0) {
+                const value = panel.querySelector('.value');
+                if (value) {
+                    const text = value.textContent.trim();
+                    if (text) {
+                        actors.push({ name: text, url: null, gender: defaultGender });
+                    }
+                }
             }
+            // 不 break，继续查找其他面板（女性+男性都收集）
         }
         return actors;
     }
