@@ -1,7 +1,7 @@
 # Javdb全能助手（JavdbBuddy）
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/86168057/JavdbBuddy/releases)
+[![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)](https://github.com/86168057/JavdbBuddy/releases)
 [![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-Javdb全能助手-orange)](https://greasyfork.org/scripts/564141)
 
 JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步、预览图查看、磁力链管理、多站点快捷搜索等功能。
@@ -80,7 +80,7 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 ## 📄 脚本说明
 
 - **脚本名**: Javdb全能助手（JavdbBuddy）
-- **版本**: 0.5.0
+- **版本**: 0.6.0
 - **适用站点**: javdb.com
 - **依赖**: 需要 Tampermonkey / Violentmonkey 等用户脚本管理器
 - **许可**: MIT License
@@ -104,6 +104,14 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 ---
 
 ## 📜 更新日志
+
+### v0.6.0
+- ✨ 新增：演员列表按性别区分颜色（男蓝女粉）
+- ✨ 新增：Emby 同步后自动刷新页面入库状态（无需手动刷新）
+- 🔧 优化：弹窗不再导致页面跳回顶部
+- 🔧 优化：获取失败时显示具体原因（登录/验证/超时等）
+- 🔧 优化：降低请求频率，减少触发 Cloudflare 验证
+- 🔧 优化：预览图/磁力链数据缓存 + 详情页直接 DOM 提取（无需额外请求）
 
 ### v0.5.0
 - 🔧 优化：脚本名改为中文「Javdb全能助手」，更新描述信息

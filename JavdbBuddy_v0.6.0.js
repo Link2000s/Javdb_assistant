@@ -2,7 +2,7 @@
 // @name         Javdb全能助手
 // @name:en      JavdbBuddy
 // @namespace    https://github.com/86168057/JavdbBuddy
-// @version      0.5.0
+// @version      0.6.0
 // @description  JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步、预览图查看、磁力链管理、多站点快捷搜索等功能。
 // @description:en  JavdbBuddy - JAVDB All-in-One Assistant: Emby library sync, preview images, magnet links, multi-site search
 // @description:zh-CN  JAVDB + EMBY 联动脚本：实时同步入库状态、预览图查看、磁力链管理、多站点搜索
@@ -25,8 +25,8 @@
 // @run-at       document-idle
 // @license      MIT
 // @homepage     https://github.com/86168057/JavdbBuddy
-// @downloadURL https://github.com/86168057/JavdbBuddy/releases/latest/download/JavdbBuddy_v0.5.0.js
-// @updateURL https://github.com/86168057/JavdbBuddy/releases/latest/download/JavdbBuddy_v0.5.0.js
+// @downloadURL https://github.com/86168057/JavdbBuddy/releases/latest/download/JavdbBuddy_v0.6.0.js
+// @updateURL https://github.com/86168057/JavdbBuddy/releases/latest/download/JavdbBuddy_v0.6.0.js
 // ==/UserScript==
 
 (function() {
@@ -340,13 +340,17 @@
     // ========== [新增] JAVBUS 磁力链内存缓存 ==========
     const JAVBUS_CACHE = {};
     const JAVDB_CACHE = {};  // JAVDB 磁力链缓存
+    const PREVIEW_CACHE = {};  // 预览图缓存：{ status: 'loading'|'loaded'|'error', imgList: [], actors: [] }
     
     // ========== [新增] 请求限流机制 ==========
     const REQUEST_QUEUE = [];
-    const MAX_CONCURRENT_REQUESTS = 1; // 同时最多1个请求（再降低）
-    const REQUEST_DELAY = 2000; // 每个请求间隔2000ms（增加至2秒）
+    const MAX_CONCURRENT_REQUESTS = 1; // 同时最多1个请求
+    const REQUEST_DELAY = 5000; // 每个请求间隔5000ms
     let activeRequests = 0;
     let lastRequestTime = 0;
+    let totalPreloadedCount = 0; // 页面总预加载计数
+    const MAX_PRELOAD_ITEMS = 0; // 关闭后台预加载，仅用户点击时才请求（防验证）
+    let queuePaused = false; // 检测到验证时暂停队列
     
     // 请求队列管理
     function queueRequest(requestFn) {
@@ -357,7 +361,7 @@
     }
     
     function processQueue() {
-        if (activeRequests >= MAX_CONCURRENT_REQUESTS || REQUEST_QUEUE.length === 0) {
+        if (queuePaused || activeRequests >= MAX_CONCURRENT_REQUESTS || REQUEST_QUEUE.length === 0) {
             return;
         }
         
@@ -380,6 +384,18 @@
                 activeRequests--;
                 setTimeout(processQueue, REQUEST_DELAY);
             });
+    }
+    
+    // 检测到CF验证时暂停队列并通知用户
+    function handleCFDetection() {
+        queuePaused = true;
+        console.warn('%c🛡️ 检测到Cloudflare验证，暂停请求队列30秒...', 'color:orange;font-size:14px;');
+        // 30秒后恢复，给用户时间手动验证
+        setTimeout(() => {
+            queuePaused = false;
+            console.log('%c🛡️ 请求队列已恢复', 'color:green;font-size:14px;');
+            processQueue();
+        }, 30000);
     }
 
     // ========== [新增] 全局排行榜菜单 ==========
@@ -1079,6 +1095,25 @@
             background: rgba(0,0,0,0.08);
             transform: translateY(-1px);
         }
+        .actor-header-bar .actor-female {
+            color: #e91e63 !important;
+            background: rgba(233,30,99,0.08);
+            border-color: rgba(233,30,99,0.2);
+        }
+        .actor-header-bar .actor-female:hover {
+            background: rgba(233,30,99,0.15);
+        }
+        .actor-header-bar .actor-male {
+            color: #2196f3 !important;
+            background: rgba(33,150,243,0.08);
+            border-color: rgba(33,150,243,0.2);
+        }
+        .actor-header-bar .actor-male:hover {
+            background: rgba(33,150,243,0.15);
+        }
+        .actor-header-bar .actor-unknown {
+            color: #888 !important;
+        }
         
         /* 全屏查看器托盘图标样式 */
         .viewer-controls {
@@ -1541,37 +1576,44 @@
     }
 
     function showModal(title, contentHtml) {
+        modalClosed = false; // 重置关闭标记
         initModal();
         // 保存当前滚动位置
-        const scrollY = window.scrollY;
-        document.body.dataset.savedScrollY = scrollY;
+        document.body.dataset.savedScrollY = window.scrollY;
         
         const overlay = document.getElementById('emby-modal-overlay');
         document.getElementById('emby-modal-title').textContent = title;
         document.getElementById('emby-modal-body').innerHTML = contentHtml;
         overlay.style.display = 'flex';
         
-        // 锁定页面滚动：使用 position:fixed 防止页面跳回顶部
-        document.body.style.position = 'fixed';
-        document.body.style.top = `-${scrollY}px`;
-        document.body.style.width = '100%';
-        document.body.style.overflow = 'hidden';
+        // 锁定页面滚动：仅设置 overflow:hidden，不改变 position/top（防止页面跳回顶部）
         document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
     }
 
+    // 标记当前模态框是否已关闭（防止请求完成后自动再弹窗）
+    let modalClosed = false;
+
     function hideModal() {
+        modalClosed = true;
         const overlay = document.getElementById('emby-modal-overlay');
         if (overlay) {
             overlay.style.display = 'none';
-            // 恢复滚动并还原位置
+            // 恢复滚动（不改变滚动位置）
             const scrollY = parseInt(document.body.dataset.savedScrollY || '0');
-            document.body.style.position = '';
-            document.body.style.top = '';
-            document.body.style.width = '';
-            document.body.style.overflow = '';
             document.documentElement.style.overflow = '';
-            window.scrollTo(0, scrollY);
+            document.body.style.overflow = '';
+            // 确保不跳回顶部
+            if (window.scrollY !== scrollY) {
+                window.scrollTo(0, scrollY);
+            }
         }
+    }
+
+    // 检查模态框是否仍然打开用于显示内容
+    function isModalVisible() {
+        const overlay = document.getElementById('emby-modal-overlay');
+        return overlay && overlay.style.display === 'flex';
     }
 
     // 图片查看器
@@ -1687,15 +1729,80 @@
         };
     }
 
+    // 预加载预览图数据（后台静默加载 + 缓存）
+    function preloadPreviewData(itemEl, videoCode) {
+        if (PREVIEW_CACHE[videoCode] && PREVIEW_CACHE[videoCode].status === 'loaded') return;
+        if (PREVIEW_CACHE[videoCode] && PREVIEW_CACHE[videoCode].status === 'loading') return;
+        
+        PREVIEW_CACHE[videoCode] = { status: 'loading', imgList: [], actors: [] };
+        
+        const detailLink = itemEl.querySelector('a[href^="/v/"]');
+        if (!detailLink) return;
+        
+        // 如果已在详情页，从 DOM 直接提取
+        if (window.location.pathname.startsWith('/v/')) {
+            const doc = document;
+            const imgList = parsePreviewImages(doc, window.location.href);
+            const actors = parseActorsFromDoc(doc);
+            PREVIEW_CACHE[videoCode] = { status: 'loaded', imgList, actors };
+            return;
+        }
+        
+        // 否则后台请求
+        queueRequest(() => {
+            return new Promise((resolve) => {
+                GM_xmlhttpRequest({
+                    method: 'GET',
+                    url: detailLink.href,
+                    timeout: 15000,
+                    onload: function(response) {
+                        const errorMsg = detectResponseError(response);
+                        if (errorMsg) {
+                            PREVIEW_CACHE[videoCode] = { status: 'error', imgList: [], actors: [], errorMsg };
+                            resolve();
+                            return;
+                        }
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(response.responseText, 'text/html');
+                        const imgList = parsePreviewImages(doc, detailLink.href);
+                        const actors = parseActorsFromDoc(doc);
+                        PREVIEW_CACHE[videoCode] = { status: 'loaded', imgList, actors };
+                        resolve();
+                    },
+                    onerror: function() {
+                        PREVIEW_CACHE[videoCode] = { status: 'error', imgList: [], actors: [], errorMsg: '请求失败' };
+                        resolve();
+                    },
+                    ontimeout: function() {
+                        PREVIEW_CACHE[videoCode] = { status: 'error', imgList: [], actors: [], errorMsg: '请求超时' };
+                        resolve();
+                    }
+                });
+            });
+        });
+    }
+
     // 添加预览图切换按钮
     function addPreviewToggle(container, itemEl, videoCode) {
         const toggleBtn = document.createElement('span');
         toggleBtn.className = 'preview-toggle-btn';
         toggleBtn.textContent = '🖼️ 预览图';
-            
+        
+        // 按钮进入视口时预加载预览图（限制总预加载数防验证）
+        const preloadObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    preloadObserver.unobserve(entry.target);
+                    if (totalPreloadedCount >= MAX_PRELOAD_ITEMS) return;
+                    totalPreloadedCount++;
+                    preloadPreviewData(itemEl, videoCode);
+                }
+            });
+        }, { rootMargin: '100px' });
+        preloadObserver.observe(toggleBtn);
+        
         toggleBtn.onclick = (e) => {
             e.preventDefault(); e.stopPropagation();
-            // 每次点击时实时抓取
             fetchPreviewImages(itemEl, videoCode);
         };
         container.appendChild(toggleBtn);
@@ -1707,13 +1814,15 @@
         toggleBtn.className = 'magnet-toggle-btn';
         toggleBtn.textContent = '🧲 磁力链';
 
-        // [新增] 后台预加载 JAVBUS + JAVDB 磁力链 - 按钮进入视口时提前加载
+        // [新增] 后台预加载 JAVBUS + JAVDB 磁力链 - 按钮进入视口时提前加载（限制总预加载数防验证）
         const needPreload = (!JAVBUS_CACHE[videoCode] || !JAVDB_CACHE[videoCode]);
         if (needPreload) {
             const preloadObserver = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         preloadObserver.unobserve(entry.target);
+                        if (totalPreloadedCount >= MAX_PRELOAD_ITEMS) return;
+                        totalPreloadedCount++;
                         // 预加载 JAVBUS
                         if (!JAVBUS_CACHE[videoCode]) {
                             preloadJavbusData(videoCode);
@@ -1724,7 +1833,7 @@
                         }
                     }
                 });
-            }, { rootMargin: '300px' });
+            }, { rootMargin: '100px' });
             preloadObserver.observe(toggleBtn);
         }
 
@@ -1761,21 +1870,25 @@
             return '未知错误';
         }
         const html = response.responseText;
-        // 检测 Cloudflare 验证
+        // 检测 Cloudflare 验证 → 自动暂停队列
         if (html.includes('cf-turnstile') || html.includes('challenge-form') ||
             html.includes('Checking your browser') || html.includes('Just a moment') ||
             html.includes('验证您是真人') || html.includes('正在检查您的浏览器') ||
             (response.status === 403 && html.includes('cloudflare'))) {
-            return '触发了 Cloudflare 安全验证，请稍后手动刷新页面完成验证后重试';
+            handleCFDetection();
+            return '触发了 Cloudflare 安全验证，请手动刷新 javdb.com 完成验证后重试';
         }
-        // 检测需要登录
-        if (html.includes('/login') || html.includes('用户登录') || 
-            (html.includes('登录') && html.includes('密码'))) {
-            return '需要登录 JAVDB 账号才能查看此内容';
+        // 检测需要登录（严格判断，只匹配真正的登录页面，避免误伤普通页面中的登录链接）
+        if (response.status === 302 || response.status === 301) {
+            const headers = (response.responseHeaders || '').toLowerCase();
+            if (headers.includes('location') && headers.includes('login')) {
+                return '需要登录 JAVDB 账号才能查看此内容';
+            }
         }
         // 检测 IP/请求被限制
         if (html.includes('请求太频繁') || html.includes('rate limit') || 
             html.includes('too many requests') || response.status === 429) {
+            handleCFDetection();
             return '请求过于频繁，请稍后再试';
         }
         if (response.status === 403) return '请求被拒绝，可能触发了网站安全限制';
@@ -1801,6 +1914,7 @@
             url: reviewUrl,
             timeout: 10000,
             onload: function(response) {
+                if (!isModalVisible()) return;
                 // 先检测错误
                 const errorMsg = detectResponseError(response);
                 if (errorMsg) {
@@ -1818,9 +1932,11 @@
                 }
             },
             onerror: function() {
+                if (!isModalVisible()) return;
                 document.getElementById('emby-modal-body').innerHTML = '<div class="preview-loading" style="color:#e74c3c;">⚠️ 请求失败，请确认已登录 JAVDB</div>';
             },
             ontimeout: function() {
+                if (!isModalVisible()) return;
                 document.getElementById('emby-modal-body').innerHTML = '<div class="preview-loading" style="color:#e74c3c;">⚠️ 请求超时，请检查网络后重试</div>';
             }
         });
@@ -2079,6 +2195,7 @@
                 url: detailLink.href,
                 timeout: 10000,
                 onload: function(response) {
+                    if (!isModalVisible()) return;
                     try {
                         const errorMsg = detectResponseError(response);
                         if (errorMsg) {
@@ -2875,43 +2992,89 @@
         });
     }
 
-    // 获取预览图并弹窗（集成演员名单）
+    // 获取预览图并弹窗（先查缓存，再回退到请求；详情页直接从 DOM 提取）
     function fetchPreviewImages(itemEl, videoCode) {
-        const detailLink = itemEl.querySelector('a[href^="/v/"]');
-        if (!detailLink) return;
+        showModal(`${videoCode} - 预览图`, '<div class="preview-loading">正在加载预览图...</div>');
 
-        showModal(`${videoCode} - 预览图`, '<div class="preview-loading">正在获取预览图...</div>');
-
-        GM_xmlhttpRequest({
-            method: 'GET',
-            url: detailLink.href,
-            timeout: 15000,
-            onload: function(response) {
-                // 先检测错误
-                const errorMsg = detectResponseError(response);
-                if (errorMsg) {
-                    document.getElementById('emby-modal-body').innerHTML = `<div class="preview-loading" style="color:#e74c3c;">⚠️ ${errorMsg}</div>`;
-                    return;
-                }
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(response.responseText, 'text/html');
-                const imgList = parsePreviewImages(doc, detailLink.href);
-                const actors = parseActorsFromDoc(doc);
-                
-                if (imgList.length === 0) {
-                    const actorHeader = renderActorHeaderHTML(actors);
-                    document.getElementById('emby-modal-body').innerHTML = (actorHeader || '') + '<div class="preview-loading">未找到预览图</div>';
-                } else {
-                    showPreviewModal(videoCode, imgList, actors);
-                }
-            },
-            onerror: function() {
-                document.getElementById('emby-modal-body').innerHTML = '<div class="preview-loading" style="color:#e74c3c;">⚠️ 请求失败，请检查网络或确认已登录 JAVDB</div>';
-            },
-            ontimeout: function() {
-                document.getElementById('emby-modal-body').innerHTML = '<div class="preview-loading" style="color:#e74c3c;">⚠️ 请求超时，请检查网络后重试</div>';
+        // 如果已经在详情页，直接从当前 DOM 提取
+        if (window.location.pathname.startsWith('/v/')) {
+            const imgList = parsePreviewImages(document, window.location.href);
+            const actors = parseActorsFromDoc(document);
+            if (!isModalVisible()) return;
+            if (imgList.length === 0) {
+                const actorHeader = renderActorHeaderHTML(actors);
+                document.getElementById('emby-modal-body').innerHTML = (actorHeader || '') + '<div class="preview-loading">未找到预览图</div>';
+            } else {
+                showPreviewModal(videoCode, imgList, actors);
             }
-        });
+            // 也写入缓存
+            PREVIEW_CACHE[videoCode] = { status: 'loaded', imgList, actors };
+            return;
+        }
+
+        // 检查缓存
+        const cached = PREVIEW_CACHE[videoCode];
+        if (cached) {
+            if (cached.status === 'loaded') {
+                if (!isModalVisible()) return;
+                if (cached.imgList && cached.imgList.length > 0) {
+                    showPreviewModal(videoCode, cached.imgList, cached.actors);
+                } else {
+                    const actorHeader = renderActorHeaderHTML(cached.actors);
+                    document.getElementById('emby-modal-body').innerHTML = (actorHeader || '') + '<div class="preview-loading">未找到预览图</div>';
+                }
+                return;
+            }
+            if (cached.status === 'loading') {
+                // 正在加载中，等待完成
+                const pollInterval = setInterval(() => {
+                    if (!isModalVisible()) { clearInterval(pollInterval); return; }
+                    const cur = PREVIEW_CACHE[videoCode];
+                    if (cur.status === 'loaded') {
+                        clearInterval(pollInterval);
+                        if (!isModalVisible()) return;
+                        if (cur.imgList && cur.imgList.length > 0) {
+                            showPreviewModal(videoCode, cur.imgList, cur.actors);
+                        } else {
+                            const actorHeader = renderActorHeaderHTML(cur.actors);
+                            document.getElementById('emby-modal-body').innerHTML = (actorHeader || '') + '<div class="preview-loading">未找到预览图</div>';
+                        }
+                    } else if (cur.status === 'error') {
+                        clearInterval(pollInterval);
+                        if (!isModalVisible()) return;
+                        document.getElementById('emby-modal-body').innerHTML = `<div class="preview-loading" style="color:#e74c3c;">⚠️ ${cur.errorMsg || '获取失败'}</div>`;
+                    }
+                }, 200);
+                return;
+            }
+            if (cached.status === 'error') {
+                // 之前失败，重新请求
+            }
+        }
+
+        // 发起请求
+        preloadPreviewData(itemEl, videoCode);
+        
+        // 轮询等待缓存
+        const pollInterval = setInterval(() => {
+            if (!isModalVisible()) { clearInterval(pollInterval); return; }
+            const cur = PREVIEW_CACHE[videoCode];
+            if (!cur) return;
+            if (cur.status === 'loaded') {
+                clearInterval(pollInterval);
+                if (!isModalVisible()) return;
+                if (cur.imgList && cur.imgList.length > 0) {
+                    showPreviewModal(videoCode, cur.imgList, cur.actors);
+                } else {
+                    const actorHeader = renderActorHeaderHTML(cur.actors);
+                    document.getElementById('emby-modal-body').innerHTML = (actorHeader || '') + '<div class="preview-loading">未找到预览图</div>';
+                }
+            } else if (cur.status === 'error') {
+                clearInterval(pollInterval);
+                if (!isModalVisible()) return;
+                document.getElementById('emby-modal-body').innerHTML = `<div class="preview-loading" style="color:#e74c3c;">⚠️ ${cur.errorMsg || '获取失败'}</div>`;
+            }
+        }, 200);
     }
     
     // 预加载预览图（后台静默加载 + 请求队列 + 只加载可见区域）
@@ -2983,11 +3146,24 @@
             actorLinks.forEach(link => {
                 const text = link.textContent.trim();
                 if (text) {
-                    // 检测文本中的性别标记
+                    // 检测性别：检查链接本身的文本、链接的相邻元素、以及整个面板的内容
                     let gender = defaultGender;
-                    if (text.includes('♂')) gender = 'male';
-                    else if (text.includes('♀')) gender = 'female';
-                    const cleanName = text.replace(/[♀♂]/g, '').trim();
+                    
+                    // 方法1：检查链接文本中的符号
+                    if (text.match(/[\u2642\u2640♂♀]/)) {
+                        if (text.includes('♂') || text.includes('\u2642')) gender = 'male';
+                        if (text.includes('♀') || text.includes('\u2640')) gender = 'female';
+                    } else {
+                        // 方法2：检查链接的下一个兄弟节点（JAVDB 常用 <span>♂</span> 跟在 <a> 后面）
+                        const next = link.nextElementSibling || link.nextSibling;
+                        if (next) {
+                            const nextText = next.textContent || '';
+                            if (nextText.includes('♂') || nextText.includes('\u2642')) gender = 'male';
+                            else if (nextText.includes('♀') || nextText.includes('\u2640')) gender = 'female';
+                        }
+                    }
+                    
+                    const cleanName = text.replace(/[♀♂\u2642\u2640]/g, '').trim();
                     if (cleanName.length > 0) {
                         const href = link.getAttribute('href');
                         const fullUrl = href ? (href.startsWith('http') ? href : new URL(href, 'https://javdb.com').href) : null;
@@ -3001,7 +3177,13 @@
                 if (value) {
                     const text = value.textContent.trim();
                     if (text) {
-                        actors.push({ name: text, url: null, gender: defaultGender });
+                        // 从容器文本中检测性别符号
+                        const hasMale = text.match(/[\u2642♂]/);
+                        const hasFemale = text.match(/[\u2640♀]/);
+                        let gender = defaultGender;
+                        if (hasMale && !hasFemale) gender = 'male';
+                        else if (hasFemale && !hasMale) gender = 'female';
+                        actors.push({ name: text.replace(/[♀♂\u2642\u2640]/g, '').trim(), url: null, gender: gender });
                     }
                 }
             }
@@ -3017,14 +3199,11 @@
         html += '<span class="actor-label">🌟 演员：</span>';
         actors.forEach(actor => {
             // 根据性别设置颜色：女性粉色、男性蓝色、未知灰色
-            let color = '#888'; // 默认灰色
-            if (actor.gender === 'female') color = '#e91e63'; // 粉色
-            else if (actor.gender === 'male') color = '#2196f3'; // 蓝色
-            const style = `color:${color};font-weight:500;`;
+            const genderClass = actor.gender === 'female' ? 'actor-female' : (actor.gender === 'male' ? 'actor-male' : 'actor-unknown');
             if (actor.url) {
-                html += `<a href="${actor.url}" target="_blank" class="actor-link" style="${style}text-decoration:none;">${actor.name}</a>`;
+                html += `<a href="${actor.url}" target="_blank" class="actor-link ${genderClass}">${actor.name}</a>`;
             } else {
-                html += `<span class="actor-link" style="${style}cursor:default;">${actor.name}</span>`;
+                html += `<span class="actor-link ${genderClass}" style="cursor:default;">${actor.name}</span>`;
             }
         });
         html += '</div>';
@@ -3361,10 +3540,52 @@
                     addPreviewToggle(toolsRow, item, code);
                     addMagnetToggle(toolsRow, item, code);
                 } else {
-                    // toolsRow 已存在，刷新 Emby 状态
-                    const oldStatus = toolsRow.querySelector('.emby-status');
-                    if (oldStatus) oldStatus.remove();
-                    addStatusIndicator(toolsRow, code, item);
+                    // toolsRow 已存在，直接刷新 Emby 状态（保持原来位置顺序）
+                    const existingStatus = toolsRow.querySelector('.emby-status');
+                    if (existingStatus) {
+                        // 直接更新现有标签，不删除重建，避免位置变动
+                        const servers = getServers();
+                        if (servers.length === 0) {
+                            existingStatus.className = 'emby-status not-added';
+                            existingStatus.textContent = '未添加服务器';
+                            existingStatus.title = '点击打开服务器设置';
+                            existingStatus.style.cursor = 'pointer';
+                            existingStatus.onclick = (e) => { e.preventDefault(); e.stopPropagation(); showSettingsDialog(); };
+                        } else if (SYNC_ERROR) {
+                            existingStatus.className = 'emby-status error';
+                            existingStatus.textContent = SYNC_ERROR;
+                            existingStatus.title = '点击打开服务器设置';
+                            existingStatus.style.cursor = 'pointer';
+                            existingStatus.onclick = (e) => { e.preventDefault(); e.stopPropagation(); showSettingsDialog(); };
+                        } else if (Object.keys(LIBRARY_INDEX).length === 0 && LAST_SYNC_TIME === 0) {
+                            existingStatus.className = 'emby-status error';
+                            existingStatus.textContent = '请点击设置并同步服务器';
+                            existingStatus.title = '点击打开服务器设置';
+                            existingStatus.style.cursor = 'pointer';
+                            existingStatus.onclick = (e) => { e.preventDefault(); e.stopPropagation(); showSettingsDialog(); };
+                        } else {
+                            const info = LIBRARY_INDEX[code.toUpperCase()];
+                            if (info) {
+                                existingStatus.className = 'emby-status exists';
+                                existingStatus.textContent = 'Emby已入库';
+                                existingStatus.title = `点击打开EMBY\n服务器: ${info.serverName}`;
+                                existingStatus.onclick = (e) => {
+                                    e.preventDefault(); e.stopPropagation();
+                                    const servers = getServers();
+                                    const currentServer = servers.find(s => s.name === info.serverName) || { url: info.serverUrl };
+                                    const finalUrl = currentServer.url || info.serverUrl;
+                                    const url = `${finalUrl}/web/index.html#!/item?id=${info.itemId}&serverId=${info.serverId}`;
+                                    window.open(url, '_blank');
+                                };
+                            } else {
+                                existingStatus.className = 'emby-status not-exists';
+                                existingStatus.textContent = 'Emby未入库';
+                                existingStatus.title = '未在服务器中找到';
+                                existingStatus.onclick = null;
+                                existingStatus.style.cursor = 'default';
+                            }
+                        }
+                    }
                 }
 
                 // 3. 第二行：搜索按钮（另起一行）
