@@ -25,8 +25,8 @@
 // @run-at       document-idle
 // @license      MIT
 // @homepage     https://github.com/86168057/JavdbBuddy
-// @downloadURL https://github.com/86168057/JavdbBuddy/releases/latest/download/JavdbBuddy_v0.4.0.js
-// @updateURL https://github.com/86168057/JavdbBuddy/releases/latest/download/JavdbBuddy_v0.4.0.js
+// @downloadURL https://github.com/86168057/JavdbBuddy/releases/latest/download/JavdbBuddy_v0.5.0.js
+// @updateURL https://github.com/86168057/JavdbBuddy/releases/latest/download/JavdbBuddy_v0.5.0.js
 // ==/UserScript==
 
 (function() {
@@ -1067,18 +1067,16 @@
             display: inline-flex;
             align-items: center;
             padding: 2px 8px;
-            background: rgba(233, 30, 99, 0.1);
-            color: #e91e63;
             border-radius: 12px;
             font-size: 12px;
-            font-weight: bold;
+            font-weight: 500;
             text-decoration: none;
-            border: 1px solid rgba(233, 30, 99, 0.2);
+            border: 1px solid transparent;
             transition: all 0.2s;
+            margin: 0 2px;
         }
         .actor-header-bar .actor-link:hover {
-            background: #e91e63;
-            color: white;
+            background: rgba(0,0,0,0.08);
             transform: translateY(-1px);
         }
         
@@ -1544,26 +1542,35 @@
 
     function showModal(title, contentHtml) {
         initModal();
+        // 保存当前滚动位置
+        const scrollY = window.scrollY;
+        document.body.dataset.savedScrollY = scrollY;
+        
         const overlay = document.getElementById('emby-modal-overlay');
         document.getElementById('emby-modal-title').textContent = title;
         document.getElementById('emby-modal-body').innerHTML = contentHtml;
         overlay.style.display = 'flex';
         
-        // 锁定页面滚动：同时锁定 html 和 body（JAVDB 使用 html 滚动）
-        document.documentElement.style.overflow = 'hidden';
-        document.documentElement.style.height = '100%';
+        // 锁定页面滚动：使用 position:fixed 防止页面跳回顶部
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${scrollY}px`;
+        document.body.style.width = '100%';
         document.body.style.overflow = 'hidden';
-        document.body.style.height = '100%';
+        document.documentElement.style.overflow = 'hidden';
     }
 
     function hideModal() {
         const overlay = document.getElementById('emby-modal-overlay');
         if (overlay) {
             overlay.style.display = 'none';
-            document.documentElement.style.overflow = '';
-            document.documentElement.style.height = '';
+            // 恢复滚动并还原位置
+            const scrollY = parseInt(document.body.dataset.savedScrollY || '0');
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.width = '';
             document.body.style.overflow = '';
-            document.body.style.height = '';
+            document.documentElement.style.overflow = '';
+            window.scrollTo(0, scrollY);
         }
     }
 
@@ -1747,6 +1754,37 @@
         container.appendChild(btn);
     }
 
+    // 检测响应错误类型，返回具体原因描述
+    function detectResponseError(response) {
+        if (!response || !response.responseText) {
+            if (response && response.status === 0) return '请求被阻止，请检查网络连接';
+            return '未知错误';
+        }
+        const html = response.responseText;
+        // 检测 Cloudflare 验证
+        if (html.includes('cf-turnstile') || html.includes('challenge-form') ||
+            html.includes('Checking your browser') || html.includes('Just a moment') ||
+            html.includes('验证您是真人') || html.includes('正在检查您的浏览器') ||
+            (response.status === 403 && html.includes('cloudflare'))) {
+            return '触发了 Cloudflare 安全验证，请稍后手动刷新页面完成验证后重试';
+        }
+        // 检测需要登录
+        if (html.includes('/login') || html.includes('用户登录') || 
+            (html.includes('登录') && html.includes('密码'))) {
+            return '需要登录 JAVDB 账号才能查看此内容';
+        }
+        // 检测 IP/请求被限制
+        if (html.includes('请求太频繁') || html.includes('rate limit') || 
+            html.includes('too many requests') || response.status === 429) {
+            return '请求过于频繁，请稍后再试';
+        }
+        if (response.status === 403) return '请求被拒绝，可能触发了网站安全限制';
+        if (response.status === 404) return '页面未找到（404）';
+        if (response.status === 500) return '服务器内部错误（500）';
+        if (response.status === 502 || response.status === 503) return '服务暂时不可用，请稍后重试';
+        return null;
+    }
+
     // 获取短评并弹窗（通过 JAVDB 短评 API）
     function fetchShortReviews(itemEl, videoCode) {
         const detailLink = itemEl.querySelector('a[href^="/v/"]');
@@ -1763,6 +1801,12 @@
             url: reviewUrl,
             timeout: 10000,
             onload: function(response) {
+                // 先检测错误
+                const errorMsg = detectResponseError(response);
+                if (errorMsg) {
+                    document.getElementById('emby-modal-body').innerHTML = `<div class="preview-loading" style="color:#e74c3c;">⚠️ ${errorMsg}</div>`;
+                    return;
+                }
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(response.responseText, 'text/html');
                 const reviews = parseReviewsFromDoc(doc);
@@ -1774,10 +1818,10 @@
                 }
             },
             onerror: function() {
-                document.getElementById('emby-modal-body').innerHTML = '<div class="preview-loading">请求失败，请确认已登录</div>';
+                document.getElementById('emby-modal-body').innerHTML = '<div class="preview-loading" style="color:#e74c3c;">⚠️ 请求失败，请确认已登录 JAVDB</div>';
             },
             ontimeout: function() {
-                document.getElementById('emby-modal-body').innerHTML = '<div class="preview-loading">请求超时</div>';
+                document.getElementById('emby-modal-body').innerHTML = '<div class="preview-loading" style="color:#e74c3c;">⚠️ 请求超时，请检查网络后重试</div>';
             }
         });
     }
@@ -2036,6 +2080,14 @@
                 timeout: 10000,
                 onload: function(response) {
                     try {
+                        const errorMsg = detectResponseError(response);
+                        if (errorMsg) {
+                            const actorHeader = document.getElementById('actor-header-magnet');
+                            if (actorHeader) {
+                                actorHeader.innerHTML = `<span style="color:#e74c3c;font-size:12px;">⚠️ ${errorMsg}</span>`;
+                            }
+                            return;
+                        }
                         const parser = new DOMParser();
                         const doc = parser.parseFromString(response.responseText, 'text/html');
                         const actors = parseActorsFromDoc(doc);
@@ -2833,7 +2885,14 @@
         GM_xmlhttpRequest({
             method: 'GET',
             url: detailLink.href,
+            timeout: 15000,
             onload: function(response) {
+                // 先检测错误
+                const errorMsg = detectResponseError(response);
+                if (errorMsg) {
+                    document.getElementById('emby-modal-body').innerHTML = `<div class="preview-loading" style="color:#e74c3c;">⚠️ ${errorMsg}</div>`;
+                    return;
+                }
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(response.responseText, 'text/html');
                 const imgList = parsePreviewImages(doc, detailLink.href);
@@ -2845,6 +2904,12 @@
                 } else {
                     showPreviewModal(videoCode, imgList, actors);
                 }
+            },
+            onerror: function() {
+                document.getElementById('emby-modal-body').innerHTML = '<div class="preview-loading" style="color:#e74c3c;">⚠️ 请求失败，请检查网络或确认已登录 JAVDB</div>';
+            },
+            ontimeout: function() {
+                document.getElementById('emby-modal-body').innerHTML = '<div class="preview-loading" style="color:#e74c3c;">⚠️ 请求超时，请检查网络后重试</div>';
             }
         });
     }
@@ -2895,7 +2960,7 @@
         observer.observe(itemEl);
     }
     
-    // 从已解析的文档中提取完整演员名单
+    // 从已解析的文档中提取完整演员名单（含性别标记）
     function parseActorsFromDoc(doc) {
         const actors = [];
         const panels = doc.querySelectorAll('.panel-block, .movie-panel-info .panel-block');
@@ -2906,11 +2971,15 @@
                 actorLinks.forEach(link => {
                     const text = link.textContent.trim();
                     if (text) {
-                        const cleanName = text.replace(/♀/g, '').trim();
+                        // 检测性别标记
+                        let gender = 'unknown';
+                        if (text.includes('♀')) gender = 'female';
+                        if (text.includes('♂')) gender = 'male';
+                        const cleanName = text.replace(/[♀♂]/g, '').trim();
                         if (cleanName.length > 0) {
                             const href = link.getAttribute('href');
                             const fullUrl = href ? (href.startsWith('http') ? href : new URL(href, 'https://javdb.com').href) : null;
-                            actors.push({ name: cleanName, url: fullUrl });
+                            actors.push({ name: cleanName, url: fullUrl, gender: gender });
                         }
                     }
                 });
@@ -2920,7 +2989,7 @@
                     if (label) {
                         const text = label.textContent.trim();
                         if (text) {
-                            actors.push({ name: text, url: null });
+                            actors.push({ name: text, url: null, gender: 'unknown' });
                         }
                     }
                 }
@@ -2930,16 +2999,21 @@
         return actors;
     }
     
-    // 生成演员名单 HTML
+    // 生成演员名单 HTML（已支持按性别区分颜色）
     function renderActorHeaderHTML(actors) {
         if (!actors || actors.length === 0) return '';
         let html = '<div class="actor-header-bar">';
         html += '<span class="actor-label">🌟 演员：</span>';
         actors.forEach(actor => {
+            // 根据性别设置颜色：女性粉色、男性蓝色、未知灰色
+            let color = '#888'; // 默认灰色
+            if (actor.gender === 'female') color = '#e91e63'; // 粉色
+            else if (actor.gender === 'male') color = '#2196f3'; // 蓝色
+            const style = `color:${color};font-weight:500;`;
             if (actor.url) {
-                html += `<a href="${actor.url}" target="_blank" class="actor-link">${actor.name}</a>`;
+                html += `<a href="${actor.url}" target="_blank" class="actor-link" style="${style}text-decoration:none;">${actor.name}</a>`;
             } else {
-                html += `<span class="actor-link" style="cursor:default;">${actor.name}</span>`;
+                html += `<span class="actor-link" style="${style}cursor:default;">${actor.name}</span>`;
             }
         });
         html += '</div>';
@@ -3275,6 +3349,11 @@
                     addShortReviewButton(toolsRow, item, code);
                     addPreviewToggle(toolsRow, item, code);
                     addMagnetToggle(toolsRow, item, code);
+                } else {
+                    // toolsRow 已存在，刷新 Emby 状态
+                    const oldStatus = toolsRow.querySelector('.emby-status');
+                    if (oldStatus) oldStatus.remove();
+                    addStatusIndicator(toolsRow, code, item);
                 }
 
                 // 3. 第二行：搜索按钮（另起一行）
