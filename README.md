@@ -1,12 +1,12 @@
 # Javdb全能助手（JavdbBuddy）
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)](https://github.com/86168057/JavdbBuddy/releases)
+[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](https://github.com/86168057/JavdbBuddy/releases)
 [![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-Javdb全能助手-orange)](https://greasyfork.org/scripts/564141)
 
-JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步、预览图查看、磁力链管理、多站点快捷搜索等功能。
+JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步、预览图查看、磁力链管理、多站点快捷搜索、免VIP热播/Top250/FC2PPV、全部评论、相关清单等功能。
 
-> **English**: JavdbBuddy - JAVDB All-in-One Assistant Tampermonkey userscript. Features: Emby library sync, preview image viewer, magnet link management, multi-site quick search, and more.
+> **English**: JavdbBuddy - JAVDB All-in-One Assistant Tampermonkey userscript. Features: Emby library sync, preview image viewer, magnet link management, multi-site quick search, Hot/Top250/FC2PPV, all reviews, related lists, and more.
 
 ---
 
@@ -21,6 +21,12 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 | 🔍 **多站点搜索** | 详情页一键搜索 98堂、BTSOW、JAVDB、JAVBUS、谷歌 |
 | ⬆ **返回顶部/底部** | 右下角浮动按钮，快速跳转页面顶部或底部 |
 | 📝 **短评查看** | 一键查看影片短评（需登录 JAVDB） |
+| 🔥 **免VIP热播** | 无需VIP即可查看热播榜单 |
+| 🏆 **免VIP Top250** | 无需VIP即可查看 Top250 榜单 |
+| 🎥 **免VIP FC2PPV** | 无需VIP即可查看 FC2PPV 内容 |
+| 💬 **全部评论** | 详情页加载全部评论内容 |
+| 📑 **相关清单** | 免VIP查看相关清单内容 |
+| 🖱️ **封面悬停放大** | 列表页封面图鼠标悬停自动放大展示 |
 
 ---
 
@@ -34,7 +40,7 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 
 ### 方法三：手动安装
 1. 安装 [Tampermonkey](https://www.tampermonkey.net/) 浏览器扩展
-2. 打开 [JavdbBuddy_v0.5.0.js](https://github.com/86168057/JavdbBuddy/raw/main/JavdbBuddy_v0.5.0.js)
+2. 打开 [JavdbBuddy_v0.7.0.js](https://github.com/86168057/JavdbBuddy/raw/main/JavdbBuddy_v0.7.0.js)
 3. Tampermonkey 自动弹出安装提示
 
 ---
@@ -49,22 +55,40 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 - **小粉按钮 🧲 磁力链**：点击弹窗查看 JAVDB + JAVBUS 双标签磁力链
 - **小橙按钮 📝 短评**：点击获取影片短评
 
-![“预览图+演员名字”快捷按钮内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/“预览图+演员名字”快捷按钮内容展示.png)
+![列表页"预览图+演员名字"快捷键内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页"预览图+演员名字"快捷键内容展示.png)
 
-![“磁力链+演员名字”快捷按钮内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/“磁力链+演员名字”快捷按钮内容展示.png)
+![列表页"磁力链"快捷键内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页"磁力链"快捷键内容展示.png)
 
-![“短评”快捷按钮内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/“短评”快捷按钮内容展示.png)
+![列表页"短评"快捷键内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页"短评"快捷键内容展示.png)
+
+![列表页"封面图"鼠标悬停，图片放大功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页"封面图"鼠标悬停，图片放大功能展示.png)
 
 ### 详情页
 
-![详情页搜索按钮+emby入库状态展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页搜索按钮+emby入库状态展示.png)
+![详情页emby入库状态标签+中多网站搜索功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页emby入库状态标签+中多网站搜索功能展示.png)
 
 - **Emby 状态标签**：显示该影片的 Emby 入库状态
 - **多站点搜索按钮**：一键在多个平台搜索该影片
 
-![详情页“javdb+javbus”双标签磁力页展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页“javdb+javbus”双标签磁力页展示.png)
+![详情页"javdb+javbus"双标签磁力页展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页"javdb+javbus"双标签磁力页展示.png)
 
 - **JAVDB / JAVBUS 双标签**：点击切换不同来源的磁力链列表
+
+![详情页"短评"功能加载全部评论的功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页"短评"功能加载全部评论的功能展示.png)
+
+![详情页"相关清单"免vip功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页"相关清单"免vip功能展示.png)
+
+### 超级功能标签
+
+![超级功能标签下的热播免VIP功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/超级功能标签下的热播免VIP功能展示.png)
+
+![超级功能标签下的top250免VIP功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/超级功能标签下的top250免VIP功能展示.png)
+
+![超级功能标签下的FC2免VIP功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/超级功能标签下的FC2免VIP功能展示.png)
+
+### 设置界面
+
+![设置中"通用设置"界面展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/设置中"通用设置"界面展示.png)
 
 ---
 
@@ -80,7 +104,7 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 ## 📄 脚本说明
 
 - **脚本名**: Javdb全能助手（JavdbBuddy）
-- **版本**: 0.6.0
+- **版本**: 0.7.0
 - **适用站点**: javdb.com
 - **依赖**: 需要 Tampermonkey / Violentmonkey 等用户脚本管理器
 - **许可**: MIT License
@@ -104,6 +128,14 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 ---
 
 ## 📜 更新日志
+
+### v0.7.0
+- ✨ 新增：多网站搜索功能（移植自 JAV 添加跳转在线观看脚本）
+- ✨ 新增：免VIP热播/Top250/FC2PPV 功能
+- ✨ 新增：全部评论加载功能
+- ✨ 新增：相关清单免VIP查看功能
+- ✨ 新增：列表页封面图鼠标悬停放大功能
+- 🔧 优化：展示图全面更新
 
 ### v0.6.0
 - ✨ 新增：演员列表按性别区分颜色（男蓝女粉）
