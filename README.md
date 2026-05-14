@@ -55,13 +55,13 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 - **小粉按钮 🧲 磁力链**：点击弹窗查看 JAVDB + JAVBUS 双标签磁力链
 - **小橙按钮 📝 短评**：点击获取影片短评
 
-![列表页"预览图+演员名字"快捷键内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页"预览图+演员名字"快捷键内容展示.png)
+![列表页-预览图+演员名字-快捷键内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页-预览图+演员名字-快捷键内容展示.png)
 
-![列表页"磁力链"快捷键内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页"磁力链"快捷键内容展示.png)
+![列表页-磁力链-快捷键内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页-磁力链-快捷键内容展示.png)
 
-![列表页"短评"快捷键内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页"短评"快捷键内容展示.png)
+![列表页-短评-快捷键内容展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页-短评-快捷键内容展示.png)
 
-![列表页"封面图"鼠标悬停，图片放大功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页"封面图"鼠标悬停，图片放大功能展示.png)
+![列表页-封面图-鼠标悬停图片放大功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/列表页-封面图-鼠标悬停，图片放大功能展示.png)
 
 ### 详情页
 
@@ -70,13 +70,13 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 - **Emby 状态标签**：显示该影片的 Emby 入库状态
 - **多站点搜索按钮**：一键在多个平台搜索该影片
 
-![详情页"javdb+javbus"双标签磁力页展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页"javdb+javbus"双标签磁力页展示.png)
+![详情页-javdb+javbus-双标签磁力页展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页-javdb+javbus-双标签磁力页展示.png)
 
 - **JAVDB / JAVBUS 双标签**：点击切换不同来源的磁力链列表
 
-![详情页"短评"功能加载全部评论的功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页"短评"功能加载全部评论的功能展示.png)
+![详情页-短评-功能加载全部评论的功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页-短评-功能加载全部评论的功能展示.png)
 
-![详情页"相关清单"免vip功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页"相关清单"免vip功能展示.png)
+![详情页-相关清单-免vip功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页-相关清单-免vip功能展示.png)
 
 ### 超级功能标签
 
@@ -88,7 +88,7 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 
 ### 设置界面
 
-![设置中"通用设置"界面展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/设置中"通用设置"界面展示.png)
+![设置中-通用设置-界面展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/设置中-通用设置-界面展示.png)
 
 ---
 
