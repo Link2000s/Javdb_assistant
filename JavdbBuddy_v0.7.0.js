@@ -12,6 +12,8 @@
 // @match        *://*.javdb.com/*
 // @match        *://*.javdb001.com/*
 // @match        *://*.javdb521.com/*
+// @match        *://*.javdb36.com/*
+// @match        *://*.javdb*.com/*
 // @require      https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js
 // @require      https://update.greasyfork.org/scripts/515994/1478507/gh_2215_make_GM_xhr_more_parallel_again.js
 // @require      https://cdn.jsdelivr.net/npm/preact@10.25.4/dist/preact.min.js
