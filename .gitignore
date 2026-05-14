@@ -4,3 +4,21 @@
 # OS files
 Thumbs.db
 .DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Temp files
+*.tmp
+*.temp
+new-tabs-test.png
+
+# Reference scripts (not part of this project)
+JAV 添加跳转在线观看/
+JAV-JHS/
+新建文件夹/
+
+# Old versions (keep only latest)
+JavdbBuddy_v0.5.0.js
+JavdbBuddy_v0.6.0.js
