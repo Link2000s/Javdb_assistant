@@ -2,7 +2,7 @@
 // @name         Javdb全能助手
 // @name:en      JavdbBuddy
 // @namespace    https://github.com/86168057/JavdbBuddy
-// @version      0.7.0
+// @version      0.8.0
 // @description  JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步、预览图查看、磁力链管理、多站点快捷搜索、免VIP热播/Top250/FC2PPV、全部评论、相关清单等功能。
 // @description:en  JavdbBuddy - JAVDB All-in-One Assistant: Emby library sync, preview images, magnet links, multi-site search, Hot/Top250/FC2PPV, all reviews, related lists
 // @description:zh-CN  JAVDB + EMBY 联动脚本：实时同步入库状态、预览图查看、磁力链管理、多站点搜索、免VIP热播/Top250/FC2PPV、全部评论、相关清单
@@ -33,13 +33,13 @@
 (function() {
     'use strict';
 
-    // ========== 🔥 JHS 导航菜单按钮参数 ==========
+    // ========== 🔥 超级功能 导航菜单按钮参数 ==========
     const JHS_HOT_URL = '/advanced_search?handlePlayback=1&period=daily';
     const JHS_TOP_URL = '/advanced_search?handleTop=1&handleType=all&type_value=&page=1';
     const JHS_FC2_URL = '/advanced_search?type=3&score_min=0&d=1';
 
     // ⭐ document-start 立即执行的三件事：
-    //   1. 隐藏 JHS 页面（热播/Top250/FC2）的搜索表单，避免闪烁
+    //   1. 隐藏 超级功能 页面（热播/Top250/FC2）的搜索表单，避免闪烁
     //   2. MutationObserver 第一时间修改导航栏元素（"排行榜"→"超级功能"、href 重定向）
     //   3. 不再使用 visibility:hidden 隐藏导航文字（避免修改后恢复不了的问题）
 
@@ -647,20 +647,29 @@
 
     console.log('EMBY Checker: 脚本启动');
 
-    // 默认EMBY服务器配置（空列表）
+    // 默认媒体服务器配置（空列表）
     const DEFAULT_SERVERS = [];
 
     // 缓存与索引
     let LIBRARY_INDEX = {};
-    let SYNC_ERROR = GM_getValue('emby_sync_error', ''); // 从持久化存储加载错误状态
+    let JELLYFIN_LIBRARY_INDEX = {};
+    let SYNC_ERROR = GM_getValue('emby_sync_error', '');
+    let JELLYFIN_SYNC_ERROR = GM_getValue('jellyfin_sync_error', '');
     try {
         LIBRARY_INDEX = JSON.parse(GM_getValue('emby_library_index', '{}'));
     } catch(e) {
         console.error('EMBY Checker: 解析索引失败', e);
         LIBRARY_INDEX = {};
     }
-    
+    try {
+        JELLYFIN_LIBRARY_INDEX = JSON.parse(GM_getValue('jellyfin_library_index', '{}'));
+    } catch(e) {
+        console.error('Jellyfin Checker: 解析索引失败', e);
+        JELLYFIN_LIBRARY_INDEX = {};
+    }
+
     let LAST_SYNC_TIME = GM_getValue('emby_last_sync', 0);
+    let JELLYFIN_LAST_SYNC_TIME = GM_getValue('jellyfin_last_sync', 0);
     const SYNC_INTERVAL = 60 * 60 * 1000; // 每1小时自动同步一次
 
     // 获取服务器配置
@@ -673,6 +682,10 @@
         }
     }
 
+    function getServersByType(type) {
+        return getServers().filter(s => (s.type || 'emby') === type);
+    }
+
     // 保存服务器配置
     function saveServers(servers) {
         GM_setValue('emby_servers', JSON.stringify(servers));
@@ -680,28 +693,43 @@
         GM_setValue('emby_config_changed', Date.now());
     }
 
-    // 全量同步EMBY库
+    // 全量同步媒体库（Emby + Jellyfin）
     async function syncFullLibrary(manual = false) {
-        const servers = getServers();
+        await syncMediaLibrary('emby');
+        await syncMediaLibrary('jellyfin');
+        initCheck();
+    }
+
+    async function syncMediaLibrary(type) {
+        const servers = getServersByType(type);
+        const isEmby = type === 'emby';
+        const indexVar = isEmby ? 'LIBRARY_INDEX' : 'JELLYFIN_LIBRARY_INDEX';
+        const errorVar = isEmby ? 'SYNC_ERROR' : 'JELLYFIN_SYNC_ERROR';
+        const lastSyncKey = isEmby ? 'emby_last_sync' : 'jellyfin_last_sync';
+        const errorKey = isEmby ? 'emby_sync_error' : 'jellyfin_sync_error';
+        const indexKey = isEmby ? 'emby_library_index' : 'jellyfin_library_index';
+
         if (servers.length === 0) {
-            SYNC_ERROR = '未添加服务器';
-            initCheck();
+            if (isEmby) SYNC_ERROR = '';
+            else JELLYFIN_SYNC_ERROR = '';
             return;
         }
 
-        SYNC_ERROR = ''; // 开始同步前重置错误
-        console.log('EMBY Checker: 开始同步全量库...');
+        if (isEmby) SYNC_ERROR = '';
+        else JELLYFIN_SYNC_ERROR = '';
+
+        console.log(`Media Checker: 开始同步 ${type} 全量库...`);
         const newIndex = {};
         let totalCount = 0;
         let hasSuccess = false;
 
         for (const server of servers) {
             try {
-                const items = await fetchAllEmbyItems(server);
+                const items = await fetchAllMediaItems(server);
                 if (Array.isArray(items)) {
                     hasSuccess = true;
                     server.lastError = false;
-                    server.statusMsg = '在线已连接'; // 新增：在线状态
+                    server.statusMsg = '在线已连接';
                     items.forEach(item => {
                         const code = extractCodeFromTitle(item.Name) || extractCodeFromTitle(item.Path);
                         if (code) {
@@ -716,40 +744,47 @@
                     });
                 }
             } catch (e) {
-                console.error(`EMBY Checker: 同步服务器 ${server.name} 失败:`, e);
+                console.error(`Media Checker: 同步 ${type} 服务器 ${server.name} 失败:`, e);
                 server.lastError = true;
-                server.statusMsg = e.toString() || '连接失败'; // 记录具体错误
-                SYNC_ERROR = server.statusMsg;
+                server.statusMsg = e.toString() || '连接失败';
+                if (isEmby) SYNC_ERROR = server.statusMsg;
+                else JELLYFIN_SYNC_ERROR = server.statusMsg;
             }
         }
 
-        saveServers(servers); // 保存带有错误状态的服务器列表以便UI显示
+        saveServers(servers);
 
         if (hasSuccess) {
-            SYNC_ERROR = ''; 
+            if (isEmby) SYNC_ERROR = '';
+            else JELLYFIN_SYNC_ERROR = '';
         } else if (servers.length > 0) {
-            newIndex = {}; 
-            if (!SYNC_ERROR) SYNC_ERROR = '所有服务器连接失败';
+            if (isEmby && !SYNC_ERROR) SYNC_ERROR = '所有服务器连接失败';
+            else if (!isEmby && !JELLYFIN_SYNC_ERROR) JELLYFIN_SYNC_ERROR = '所有服务器连接失败';
         }
 
-        GM_setValue('emby_sync_error', SYNC_ERROR); // 持久化错误状态
-        LIBRARY_INDEX = newIndex;
-        GM_setValue('emby_library_index', JSON.stringify(LIBRARY_INDEX));
-        GM_setValue('emby_last_sync', Date.now());
-        
-        console.log(`EMBY Checker: 全量同步完成，共计 ${totalCount} 个番号。`);
-        
-        initCheck();
+        GM_setValue(errorKey, isEmby ? SYNC_ERROR : JELLYFIN_SYNC_ERROR);
+        if (isEmby) {
+            LIBRARY_INDEX = newIndex;
+            GM_setValue(indexKey, JSON.stringify(LIBRARY_INDEX));
+            LAST_SYNC_TIME = Date.now();
+        } else {
+            JELLYFIN_LIBRARY_INDEX = newIndex;
+            GM_setValue(indexKey, JSON.stringify(JELLYFIN_LIBRARY_INDEX));
+            JELLYFIN_LAST_SYNC_TIME = Date.now();
+        }
+        GM_setValue(lastSyncKey, Date.now());
+
+        console.log(`Media Checker: ${type} 全量同步完成，共计 ${totalCount} 个番号。`);
     }
 
-    // 分页获取EMBY所有项目
-    function fetchAllEmbyItems(server) {
+    // 分页获取媒体服务器所有项目（Emby / Jellyfin API 兼容）
+    function fetchAllMediaItems(server) {
         return new Promise((resolve, reject) => {
-            const apiUrl = `${server.url}/emby/Items?Recursive=true&IncludeItemTypes=Movie&Fields=Path&api_key=${server.apiKey}`;
+            const apiUrl = `${server.url}/Items?Recursive=true&IncludeItemTypes=Movie&Fields=Path&api_key=${server.apiKey}`;
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: apiUrl,
-                timeout: 10000, // 缩短超时时间到10秒
+                timeout: 10000,
                 onload: function(response) {
                     if (response.status === 200) {
                         try {
@@ -799,13 +834,15 @@
     }
 
     // 检查同步
-    if (Date.now() - LAST_SYNC_TIME > SYNC_INTERVAL) {
+    const embyNeedsSync = getServersByType('emby').length > 0 && Date.now() - LAST_SYNC_TIME > SYNC_INTERVAL;
+    const jellyfinNeedsSync = getServersByType('jellyfin').length > 0 && Date.now() - JELLYFIN_LAST_SYNC_TIME > SYNC_INTERVAL;
+    if (embyNeedsSync || jellyfinNeedsSync) {
         syncFullLibrary().catch(e => console.error('自动同步失败', e));
     }
 
     // 菜单
-    GM_registerMenuCommand('🔄 立即同步EMBY库', () => syncFullLibrary(manualSyncCallback));
-    GM_registerMenuCommand('⚙️ EMBY服务器设置', showSettingsDialog);
+    GM_registerMenuCommand('🔄 立即同步媒体库', () => syncFullLibrary(manualSyncCallback));
+    GM_registerMenuCommand('⚙️ 媒体服务器设置', showSettingsDialog);
 
     function manualSyncCallback() {
         syncFullLibrary(true);
@@ -831,7 +868,7 @@
                     <div style="padding:20px 16px;font-size:18px;font-weight:bold;color:#333;border-bottom:1px solid #e0e0e0;">设置</div>
                     <div style="flex:1;overflow-y:auto;padding:10px 0;">
                         <div class="jb-setting-tab active" data-tab="tab-general" style="padding:10px 16px;cursor:pointer;font-size:14px;color:#333;border-left:3px solid #2196F3;background:#e3f2fd;display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">⚙️</span><span>通用设置</span></div>
-                        <div class="jb-setting-tab" data-tab="tab-emby" style="padding:10px 16px;cursor:pointer;font-size:14px;color:#666;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">🖥️</span><span>EMBY配置</span></div>
+                        <div class="jb-setting-tab" data-tab="tab-emby" style="padding:10px 16px;cursor:pointer;font-size:14px;color:#666;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">🖥️</span><span>媒体服务器配置</span></div>
                         <div class="jb-setting-tab" data-tab="tab-backup" style="padding:10px 16px;cursor:pointer;font-size:14px;color:#666;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">☁️</span><span>备份与恢复</span></div>
                         <div class="jb-setting-tab" data-tab="tab-about" style="padding:10px 16px;cursor:pointer;font-size:14px;color:#666;border-left:3px solid transparent;display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">💖</span><span>关于打赏</span></div>
                     </div>
@@ -866,13 +903,13 @@
                         </div>
 
                         <div id="tab-emby" class="jb-tab-content" style="display:none;">
-                            <div style="margin-bottom:15px;color:#666;font-size:12px;">上次同步时间: ${LAST_SYNC_TIME ? new Date(LAST_SYNC_TIME).toLocaleString() : '尚未同步'}</div>
+                            <div style="margin-bottom:15px;color:#666;font-size:12px;">Emby 上次同步: ${LAST_SYNC_TIME ? new Date(LAST_SYNC_TIME).toLocaleString() : '尚未同步'} | Jellyfin 上次同步: ${JELLYFIN_LAST_SYNC_TIME ? new Date(JELLYFIN_LAST_SYNC_TIME).toLocaleString() : '尚未同步'}</div>
                             <div style="background:#f0f8ff;border-left:3px solid #2196F3;padding:12px;margin-bottom:15px;font-size:13px;line-height:1.6;">
                                 <strong>📖 使用说明：</strong><br>
-                                1. <strong>添加 emby 服务器</strong>：点击下方绿色按钮，填写服务器名称、地址和 API Key。<br>
-                                2. <strong>获取 API Key</strong>：登录 emby 后台 → 设置 → 高级 → API 密钥 → 新建。<br>
+                                1. <strong>添加服务器</strong>：点击下方绿色按钮，选择服务器类型（Emby / Jellyfin），填写名称、地址和 API Key。<br>
+                                2. <strong>获取 API Key</strong>：登录 Emby 后台 → 设置 → 高级 → API 密钥 → 新建；Jellyfin 后台 → 控制台 → 高级 → API 密钥 → 新建。<br>
                                 3. <strong>保存并同步</strong>：点击下方蓝色按钮，脚本将<strong>立即连接</strong>所有已填写的服务器并<strong>全量抓取</strong>番号数据。只有同步成功后，页面才会显示入库状态。<br>
-                                4. <strong>EMBY入库检查方式</strong>：脚本会同步 emby 服务器中所有视频的标题并建立本地索引，实现秒级比对。同时脚本具备<strong>实时秒同步</strong>能力，当您在服务器中<strong>增加或删除</strong>媒体视频后，页面状态也会实时感知并同步更新，无需手动干预。
+                                4. <strong>入库检查方式</strong>：脚本会同步服务器中所有视频的标题并建立本地索引，实现秒级比对。同时脚本具备<strong>实时秒同步</strong>能力，当您在服务器中<strong>增加或删除</strong>媒体视频后，页面状态也会实时感知并同步更新，无需手动干预。
                             </div>
                             <div id="server-list-container">`;
         
@@ -891,26 +928,36 @@
                     statusHtml = `<span style="margin-left:10px;padding:1px 6px;background:#9e9e9e;color:white;border-radius:3px;font-size:10px;font-weight:normal;">待同步/未连接</span>`;
                 }
 
+                const serverType = server.type || 'emby';
+                const typeLabel = serverType === 'emby' ? 'Emby' : 'Jellyfin';
                 html += `
                 <div class="server-item" style="border:1px solid #ddd;margin-bottom:10px;border-radius:4px;">
                     <div class="server-header" style="padding:12px 15px;background:#f8f9fa;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="const body = document.getElementById('server-body-${index}'); const arrow = document.getElementById('server-arrow-${index}'); body.style.display = body.style.display === 'none' ? 'block' : 'none'; arrow.textContent = body.style.display === 'none' ? '▼' : '▲';">
                         <div style="display:flex;align-items:center;">
-                            <strong style="font-size:14px;">${server.name || 'emby'}</strong>
+                            <span style="margin-right:8px;padding:1px 6px;background:${serverType === 'emby' ? '#4CAF50' : '#673AB7'};color:white;border-radius:3px;font-size:10px;">${typeLabel}</span>
+                            <strong style="font-size:14px;">${server.name || typeLabel}</strong>
                             ${statusHtml}
                         </div>
                         <span id="server-arrow-${index}" style="color:#999;font-size:12px;transition:transform 0.2s;">${arrowIcon}</span>
                     </div>
                     <div id="server-body-${index}" style="padding:15px;display:${shouldExpand ? 'block' : 'none'};">
                         <div style="margin-bottom:8px;">
-                            <label style="display:inline-block;width:140px;font-weight:bold;">EMBY服务器名称：</label>
-                            <input type="text" id="name-${index}" value="${server.name === '新服务器' || !server.name ? 'emby' : server.name}" placeholder="例如：主服务器" style="width:calc(100% - 150px);padding:5px;" />
+                            <label style="display:inline-block;width:140px;font-weight:bold;">服务器类型：</label>
+                            <select id="type-${index}" style="width:calc(100% - 150px);padding:5px;">
+                                <option value="emby" ${serverType === 'emby' ? 'selected' : ''}>Emby</option>
+                                <option value="jellyfin" ${serverType === 'jellyfin' ? 'selected' : ''}>Jellyfin</option>
+                            </select>
                         </div>
                         <div style="margin-bottom:8px;">
-                            <label style="display:inline-block;width:140px;font-weight:bold;">EMBY服务器地址：</label>
+                            <label style="display:inline-block;width:140px;font-weight:bold;">服务器名称：</label>
+                            <input type="text" id="name-${index}" value="${server.name === '新服务器' || !server.name ? typeLabel : server.name}" placeholder="例如：主服务器" style="width:calc(100% - 150px);padding:5px;" />
+                        </div>
+                        <div style="margin-bottom:8px;">
+                            <label style="display:inline-block;width:140px;font-weight:bold;">服务器地址：</label>
                             <input type="text" id="url-${index}" value="${server.url}" placeholder="例如：http://192.168.1.100:8096" style="width:calc(100% - 150px);padding:5px;" />
                         </div>
                         <div style="margin-bottom:12px;">
-                            <label style="display:inline-block;width:140px;font-weight:bold;">EMBY API Key：</label>
+                            <label style="display:inline-block;width:140px;font-weight:bold;">API Key：</label>
                             <input type="text" id="key-${index}" value="${server.apiKey}" placeholder="32位API密钥" style="width:calc(100% - 150px);padding:5px;" />
                         </div>
                         <div style="display:flex;gap:8px;">
@@ -1010,7 +1057,7 @@
         const tabs = overlay.querySelectorAll('.jb-setting-tab');
         const contents = overlay.querySelectorAll('.jb-tab-content');
         const titleEl = overlay.querySelector('#jb-setting-title');
-        const tabTitles = { 'tab-general': '通用设置', 'tab-emby': 'EMBY 配置', 'tab-backup': '备份与恢复', 'tab-about': '关于打赏' };
+        const tabTitles = { 'tab-general': '通用设置', 'tab-emby': '媒体服务器配置', 'tab-backup': '备份与恢复', 'tab-about': '关于打赏' };
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 const target = tab.dataset.tab;
@@ -1067,7 +1114,7 @@
         };
         document.getElementById('add-server-btn').onclick = () => {
             const newIndex = servers.length;
-            servers.push({ url: '', apiKey: '', name: 'emby' });
+            servers.push({ url: '', apiKey: '', name: 'emby', type: 'emby' });
             saveServers(servers);
             const container = document.getElementById('server-list-container');
             if (!container) return;
@@ -1076,6 +1123,7 @@
             <div class="server-item" style="border:1px solid #ddd;margin-bottom:10px;border-radius:4px;">
                 <div class="server-header" style="padding:12px 15px;background:#f8f9fa;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="const body = document.getElementById('server-body-${newIndex}'); const arrow = document.getElementById('server-arrow-${newIndex}'); body.style.display = body.style.display === 'none' ? 'block' : 'none'; arrow.textContent = body.style.display === 'none' ? '▼' : '▲';">
                     <div style="display:flex;align-items:center;">
+                        <span style="margin-right:8px;padding:1px 6px;background:#4CAF50;color:white;border-radius:3px;font-size:10px;">Emby</span>
                         <strong style="font-size:14px;">emby</strong>
                         ${statusHtml}
                     </div>
@@ -1083,15 +1131,22 @@
                 </div>
                 <div id="server-body-${newIndex}" style="padding:15px;display:block;">
                     <div style="margin-bottom:8px;">
-                        <label style="display:inline-block;width:140px;font-weight:bold;">EMBY服务器名称：</label>
+                        <label style="display:inline-block;width:140px;font-weight:bold;">服务器类型：</label>
+                        <select id="type-${newIndex}" style="width:calc(100% - 150px);padding:5px;">
+                            <option value="emby" selected>Emby</option>
+                            <option value="jellyfin">Jellyfin</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom:8px;">
+                        <label style="display:inline-block;width:140px;font-weight:bold;">服务器名称：</label>
                         <input type="text" id="name-${newIndex}" value="emby" placeholder="例如：主服务器" style="width:calc(100% - 150px);padding:5px;" />
                     </div>
                     <div style="margin-bottom:8px;">
-                        <label style="display:inline-block;width:140px;font-weight:bold;">EMBY服务器地址：</label>
+                        <label style="display:inline-block;width:140px;font-weight:bold;">服务器地址：</label>
                         <input type="text" id="url-${newIndex}" value="" placeholder="例如：http://192.168.1.100:8096" style="width:calc(100% - 150px);padding:5px;" />
                     </div>
                     <div style="margin-bottom:12px;">
-                        <label style="display:inline-block;width:140px;font-weight:bold;">EMBY API Key：</label>
+                        <label style="display:inline-block;width:140px;font-weight:bold;">API Key：</label>
                         <input type="text" id="key-${newIndex}" value="" placeholder="32位API密钥" style="width:calc(100% - 150px);padding:5px;" />
                     </div>
                     <div style="display:flex;gap:8px;">
@@ -1114,7 +1169,8 @@
                     newServers.push({
                         url: url.replace(/\/$/, ''),
                         apiKey: document.getElementById(`key-${index}`)?.value.trim() || '',
-                        name: document.getElementById(`name-${index}`)?.value.trim() || 'emby'
+                        name: document.getElementById(`name-${index}`)?.value.trim() || 'emby',
+                        type: document.getElementById(`type-${index}`)?.value || 'emby'
                     });
                 }
             });
@@ -1128,7 +1184,9 @@
             const config = {
                 servers: getServers(),
                 libraryIndex: LIBRARY_INDEX,
+                jellyfinLibraryIndex: JELLYFIN_LIBRARY_INDEX,
                 lastSyncTime: LAST_SYNC_TIME,
+                jellyfinLastSyncTime: JELLYFIN_LAST_SYNC_TIME,
                 backupTime: new Date().toISOString()
             };
             const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
@@ -1159,9 +1217,17 @@
                         GM_setValue('emby_library_index', JSON.stringify(config.libraryIndex));
                         LIBRARY_INDEX = config.libraryIndex;
                     }
+                    if (config.jellyfinLibraryIndex) {
+                        GM_setValue('jellyfin_library_index', JSON.stringify(config.jellyfinLibraryIndex));
+                        JELLYFIN_LIBRARY_INDEX = config.jellyfinLibraryIndex;
+                    }
                     if (config.lastSyncTime) {
                         GM_setValue('emby_last_sync', config.lastSyncTime);
                         LAST_SYNC_TIME = config.lastSyncTime;
+                    }
+                    if (config.jellyfinLastSyncTime) {
+                        GM_setValue('jellyfin_last_sync', config.jellyfinLastSyncTime);
+                        JELLYFIN_LAST_SYNC_TIME = config.jellyfinLastSyncTime;
                     }
                     overlay.remove();
                     showSettingsDialog();
@@ -1245,9 +1311,11 @@
             const name = document.getElementById(`name-${index}`)?.value.trim() || 'emby';
             const url = document.getElementById(`url-${index}`)?.value.trim();
             const apiKey = document.getElementById(`key-${index}`)?.value.trim();
-            
+            const serverType = document.getElementById(`type-${index}`)?.value || 'emby';
+            const typeLabel = serverType === 'emby' ? 'Emby' : 'Jellyfin';
+
             if (!url || !apiKey) {
-                console.warn('EMBY Checker: 请填写完整的服务器地址和 API Key');
+                console.warn('Media Checker: 请填写完整的服务器地址和 API Key');
                 return;
             }
 
@@ -1256,20 +1324,20 @@
             btn.disabled = true;
             btn.style.opacity = '0.7';
 
-            const tempServer = { 
-                url: url.replace(/\/$/, ''), 
-                apiKey: apiKey, 
-                name: name 
+            const tempServer = {
+                url: url.replace(/\/$/, ''),
+                apiKey: apiKey,
+                name: name,
+                type: serverType
             };
 
             try {
-                // 超时时间进一步调短为 3 秒进行连接测试
                 const items = await new Promise((resolve, reject) => {
-                    const apiUrl = `${tempServer.url}/emby/Items?Recursive=true&IncludeItemTypes=Movie&Fields=Path&Limit=1&api_key=${tempServer.apiKey}`;
+                    const apiUrl = `${tempServer.url}/Items?Recursive=true&IncludeItemTypes=Movie&Fields=Path&Limit=1&api_key=${tempServer.apiKey}`;
                     GM_xmlhttpRequest({
                         method: 'GET',
                         url: apiUrl,
-                        timeout: 3000, // 连接测试超时调短为 3s
+                        timeout: 3000,
                         onload: function(response) {
                             if (response.status === 200) {
                                 try {
@@ -1277,43 +1345,36 @@
                                     resolve(data.Items || []);
                                 } catch (e) { reject('数据解析失败'); }
                             } else if (response.status === 401) {
-                                reject('Emby API Key 错误');
+                                reject(`${typeLabel} API Key 错误`);
                             } else {
                                 reject(`连接失败 (${response.status})`);
                             }
                         },
-                        onerror: function() { reject('EMBY服务器地址错误或未连接'); },
-                        ontimeout: function() { reject('EMBY服务器连接超时'); }
+                        onerror: function() { reject(`${typeLabel}服务器地址错误或未连接`); },
+                        ontimeout: function() { reject(`${typeLabel}服务器连接超时`); }
                     });
                 });
 
-                // 连接成功：更新配置并保存
                 servers[index] = {
                     ...tempServer,
                     lastError: false,
                     statusMsg: '在线已连接'
                 };
                 saveServers(servers);
-                
-                // 同步成功后触发全量库抓取（此处可以保持 30s 抓取全量）
+
                 syncFullLibrary(false);
 
-                // 重新刷新对话框以展示绿色标签并自动收起
                 overlay.remove();
                 showSettingsDialog();
                 initCheck();
             } catch (e) {
-                // 连接失败：更新临时状态供 UI 显示，但不允许将其作为"有效配置"保存到持久化存储（除非是为了记录错误状态）
-                // 用户如果刷新页面，这个未连接成功的服务器由于没有 saveServers 将会丢失，或者保持上次的状态
                 servers[index].statusMsg = e.toString();
                 servers[index].lastError = true;
-                
+
                 btn.textContent = originalText;
                 btn.disabled = false;
                 btn.style.opacity = '1';
-                
-                // 刷新 UI 状态显示错误，但不进行 saveServers(servers) 的持久化操作（或者仅持久化错误状态以便下次展示）
-                // 按照用户要求：不允许保存填写的配置信息。我们只在内存中更新状态并刷新 UI
+
                 const statusTag = document.querySelector(`#server-body-${index}`).previousElementSibling.querySelector('span[id^="server-arrow-"]').previousElementSibling;
                 if (statusTag) {
                     statusTag.innerHTML = `<span style="margin-left:10px;padding:1px 6px;background:#ff9800;color:white;border-radius:3px;font-size:10px;font-weight:normal;">${e.toString()}</span>`;
@@ -1378,6 +1439,14 @@
             margin-bottom: 5px;
         }
         /* 新增：第二行工具栏容器 */
+        .emby-status-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 3px;
+            margin-top: 5px;
+            width: 100%;
+        }
         .emby-tools-row {
             display: flex;
             align-items: center;
@@ -1848,33 +1917,39 @@
     document.head.appendChild(style);
 
     // 状态显示逻辑
-    function addStatusIndicator(container, videoCode, itemEl = null, insertBefore = null) {
+    function addStatusIndicator(container, videoCode, itemEl = null, insertBefore = null, serverType = 'emby') {
         if (!videoCode) return;
 
         // 移除旧的显示状态（如果存在）
-        const oldStatus = container.querySelector('.emby-status');
+        const oldStatus = container.querySelector(`.emby-status[data-type="${serverType}"]`);
         if (oldStatus) {
             oldStatus.remove();
         }
 
-        const servers = getServers();
+        const servers = getServersByType(serverType);
         const statusDiv = document.createElement('span');
+        statusDiv.dataset.type = serverType;
+
+        const isEmby = serverType === 'emby';
+        const libraryIndex = isEmby ? LIBRARY_INDEX : JELLYFIN_LIBRARY_INDEX;
+        const syncError = isEmby ? SYNC_ERROR : JELLYFIN_SYNC_ERROR;
+        const lastSync = isEmby ? LAST_SYNC_TIME : JELLYFIN_LAST_SYNC_TIME;
 
         // 优先处理状态异常情况
         if (servers.length === 0) {
-            renderStatusMessage(statusDiv, '未添加服务器', 'not-added');
-        } else if (SYNC_ERROR) {
-            renderStatusMessage(statusDiv, SYNC_ERROR, 'error');
-        } else if (Object.keys(LIBRARY_INDEX).length === 0 && LAST_SYNC_TIME === 0) {
-            renderStatusMessage(statusDiv, '请点击设置并同步服务器', 'error');
+            renderStatusMessage(statusDiv, '未添加服务器', 'not-added', serverType);
+        } else if (syncError) {
+            renderStatusMessage(statusDiv, syncError, 'error', serverType);
+        } else if (Object.keys(libraryIndex).length === 0 && lastSync === 0) {
+            renderStatusMessage(statusDiv, '请点击设置并同步服务器', 'error', serverType);
         } else {
-            const info = LIBRARY_INDEX[videoCode.toUpperCase()];
+            const info = libraryIndex[videoCode.toUpperCase()];
             if (info) {
-                renderExists(statusDiv, info);
-                verifyStatusBackground(statusDiv, videoCode, true);
+                renderExists(statusDiv, info, serverType);
+                verifyStatusBackground(statusDiv, videoCode, true, serverType);
             } else {
-                renderNotExists(statusDiv);
-                verifyStatusBackground(statusDiv, videoCode, false);
+                renderNotExists(statusDiv, serverType);
+                verifyStatusBackground(statusDiv, videoCode, false, serverType);
             }
         }
 
@@ -3659,40 +3734,43 @@
         }, 100);
     }
 
-    function renderExists(statusDiv, info) {
+    function renderExists(statusDiv, info, serverType = 'emby') {
+        const label = serverType === 'emby' ? 'Emby已入库' : 'Jellyfin已入库';
         statusDiv.className = 'emby-status exists';
-        statusDiv.textContent = 'Emby已入库';
-        
-        // 动态获取服务器当前最新的URL，防止配置更改后索引中的URL失效
+        statusDiv.textContent = label;
+
         const servers = getServers();
         const currentServer = servers.find(s => s.name === info.serverName) || { url: info.serverUrl };
         const finalUrl = currentServer.url || info.serverUrl;
+        const detailPath = serverType === 'emby'
+            ? `/web/index.html#!/item?id=${info.itemId}&serverId=${info.serverId}`
+            : `/web/index.html#!/details?id=${info.itemId}&serverId=${info.serverId}`;
 
-        statusDiv.title = `点击打开EMBY\n服务器: ${info.serverName}`;
+        statusDiv.title = `点击打开${serverType === 'emby' ? 'EMBY' : 'Jellyfin'}\n服务器: ${info.serverName}`;
         statusDiv.onclick = (e) => {
             e.preventDefault(); e.stopPropagation();
-            const url = `${finalUrl}/web/index.html#!/item?id=${info.itemId}&serverId=${info.serverId}`;
-            window.open(url, '_blank');
+            window.open(`${finalUrl}${detailPath}`, '_blank');
         };
-        
+
         // 添加提示文字（仅详情页）
         if (window.location.pathname.startsWith('/v/')) {
             const hint = document.createElement('div');
             hint.style.cssText = 'font-size: 11px; color: #999; margin-top: 3px; line-height: 1.4;';
-            hint.textContent = 'ℹ️ 点击标签可直接跳转到 Emby 服务器中的媒体页面';
+            hint.textContent = `ℹ️ 点击标签可直接跳转到 ${serverType === 'emby' ? 'Emby' : 'Jellyfin'} 服务器中的媒体页面`;
             statusDiv.parentElement.appendChild(hint);
         }
     }
 
-    function renderNotExists(statusDiv) {
+    function renderNotExists(statusDiv, serverType = 'emby') {
+        const label = serverType === 'emby' ? 'Emby未入库' : 'Jellyfin未入库';
         statusDiv.className = 'emby-status not-exists';
-        statusDiv.textContent = 'Emby未入库';
+        statusDiv.textContent = label;
         statusDiv.title = '未在服务器中找到';
         statusDiv.onclick = null;
     }
 
     // 新增：渲染状态消息（如未添加服务器、连接失败）
-    function renderStatusMessage(statusDiv, message, type) {
+    function renderStatusMessage(statusDiv, message, type, serverType = 'emby') {
         statusDiv.className = `emby-status ${type}`;
         statusDiv.textContent = message;
         statusDiv.title = message;
@@ -3704,47 +3782,56 @@
     }
 
     // 后台验证状态（实时同步关键）
-    function verifyStatusBackground(statusDiv, videoCode, cachedExists) {
-        const servers = getServers();
+    function verifyStatusBackground(statusDiv, videoCode, cachedExists, serverType = 'emby') {
+        const servers = getServersByType(serverType);
         if (servers.length === 0) return;
 
         const firstServer = servers[0];
-        
+
         // 如果服务器已经有已知的错误，立即显示，不再等待请求
         if (firstServer.lastError && firstServer.statusMsg) {
-            renderStatusMessage(statusDiv, firstServer.statusMsg, 'error');
+            renderStatusMessage(statusDiv, firstServer.statusMsg, 'error', serverType);
             return;
         }
 
         if (!firstServer.url || !firstServer.apiKey) {
-            renderStatusMessage(statusDiv, '服务器配置不完整', 'error');
+            renderStatusMessage(statusDiv, '服务器配置不完整', 'error', serverType);
             return;
         }
 
-        const apiUrl = `${firstServer.url}/emby/Items?searchTerm=${encodeURIComponent(videoCode)}&Recursive=true&IncludeItemTypes=Movie&Limit=1&api_key=${firstServer.apiKey}`;
+        const apiUrl = `${firstServer.url}/Items?searchTerm=${encodeURIComponent(videoCode)}&Recursive=true&IncludeItemTypes=Movie&Limit=1&api_key=${firstServer.apiKey}`;
+
+        const isEmby = serverType === 'emby';
+        const indexVar = isEmby ? LIBRARY_INDEX : JELLYFIN_LIBRARY_INDEX;
+        const syncError = isEmby ? SYNC_ERROR : JELLYFIN_SYNC_ERROR;
+        const indexKey = isEmby ? 'emby_library_index' : 'jellyfin_library_index';
 
         GM_xmlhttpRequest({
             method: 'GET',
             url: apiUrl,
-            timeout: 2000, // 进一步缩短背景校验超时时间到 2s
+            timeout: 2000,
             onload: function(response) {
-                // 如果同步状态本来就是错误，或者已经显示了错误信息，不要再用成功结果覆盖它
-                if (SYNC_ERROR && statusDiv.classList.contains('error')) return;
+                if (syncError && statusDiv.classList.contains('error')) return;
 
                 if (response.status !== 200) {
                     let msg = `连接出错 (${response.status})`;
-                    if (response.status === 401) msg = 'Emby API Key 错误';
-                    renderStatusMessage(statusDiv, msg, 'error');
+                    if (response.status === 401) msg = `${serverType === 'emby' ? 'Emby' : 'Jellyfin'} API Key 错误`;
+                    renderStatusMessage(statusDiv, msg, 'error', serverType);
                     return;
                 }
                 try {
                     const data = JSON.parse(response.responseText);
                     const nowExists = data.Items && data.Items.length > 0;
-                    
+
                     if (cachedExists && !nowExists) {
-                        delete LIBRARY_INDEX[videoCode.toUpperCase()];
-                        GM_setValue('emby_library_index', JSON.stringify(LIBRARY_INDEX));
-                        renderNotExists(statusDiv);
+                        if (isEmby) {
+                            delete LIBRARY_INDEX[videoCode.toUpperCase()];
+                            GM_setValue(indexKey, JSON.stringify(LIBRARY_INDEX));
+                        } else {
+                            delete JELLYFIN_LIBRARY_INDEX[videoCode.toUpperCase()];
+                            GM_setValue(indexKey, JSON.stringify(JELLYFIN_LIBRARY_INDEX));
+                        }
+                        renderNotExists(statusDiv, serverType);
                     } else if (!cachedExists && nowExists) {
                         const item = data.Items[0];
                         const newInfo = {
@@ -3753,19 +3840,24 @@
                             serverUrl: firstServer.url,
                             serverName: firstServer.name
                         };
-                        LIBRARY_INDEX[videoCode.toUpperCase()] = newInfo;
-                        GM_setValue('emby_library_index', JSON.stringify(LIBRARY_INDEX));
-                        renderExists(statusDiv, newInfo);
+                        if (isEmby) {
+                            LIBRARY_INDEX[videoCode.toUpperCase()] = newInfo;
+                            GM_setValue(indexKey, JSON.stringify(LIBRARY_INDEX));
+                        } else {
+                            JELLYFIN_LIBRARY_INDEX[videoCode.toUpperCase()] = newInfo;
+                            GM_setValue(indexKey, JSON.stringify(JELLYFIN_LIBRARY_INDEX));
+                        }
+                        renderExists(statusDiv, newInfo, serverType);
                     }
                 } catch (e) {
-                    renderStatusMessage(statusDiv, 'Emby返回数据异常', 'error');
+                    renderStatusMessage(statusDiv, `${serverType === 'emby' ? 'Emby' : 'Jellyfin'}返回数据异常`, 'error', serverType);
                 }
             },
             onerror: function() {
-                renderStatusMessage(statusDiv, '地址错误或无法连接', 'error');
+                renderStatusMessage(statusDiv, '地址错误或无法连接', 'error', serverType);
             },
             ontimeout: function() {
-                renderStatusMessage(statusDiv, '连接超时', 'error');
+                renderStatusMessage(statusDiv, '连接超时', 'error', serverType);
             }
         });
     }
@@ -3793,91 +3885,31 @@
                     
                     if (val) {
                         foundCode = true;
-                        // 强制清理所有旧指示器
-                        const allOldStatuses = document.querySelectorAll('.emby-status');
-                        allOldStatuses.forEach(el => {
-                            console.log('EMBY Checker: 移除旧状态指示器:', el.textContent, el.parentElement?.className);
-                            el.remove();
+                        const videoCode = val.textContent.trim();
+
+                        // 清理所有旧指示器
+                        block.querySelectorAll('.emby-status').forEach(el => el.remove());
+                        block.querySelectorAll('div').forEach(el => {
+                            if (el.textContent && el.textContent.includes('点击标签可直接跳转到')) el.remove();
                         });
-                        
-                        const existingStatus = block.querySelector('.emby-status');
-                        // 稳定性逻辑：只有在没有标签，或者全局同步错误发生变化时才重绘
-                        if (existingStatus) {
-                            console.log('EMBY Checker: EMBY标签已存在');
-                            if (SYNC_ERROR && existingStatus.textContent !== SYNC_ERROR) {
-                                // 更新指示器文本和样式
-                                existingStatus.textContent = SYNC_ERROR;
-                                existingStatus.className = 'emby-status error';
-                                existingStatus.title = SYNC_ERROR;
-                                existingStatus.style.cursor = 'pointer';
-                            }
-                            // 如果已经有标签了，且没有全局错误需要显示，则跳过，交给 verifyStatusBackground 处理后续更新
-                        } else {
-                            console.log('EMBY Checker: 未找到现有EMBY标签，开始添加');
-                            const copyBtn = block.querySelector('.copy-to-clipboard');
-                            const statusDiv = document.createElement('span');
-                            statusDiv.style.marginLeft = '4px';
-                            // 确定状态
-                            const servers = getServers();
-                            if (servers.length === 0) {
-                                statusDiv.className = 'emby-status not-added';
-                                statusDiv.textContent = '未添加服务器';
-                                statusDiv.title = '点击打开EMBY配置';
-                                statusDiv.style.cursor = 'pointer';
-                                statusDiv.onclick = (e) => {
-                                    e.preventDefault(); e.stopPropagation();
-                                    showSettingsDialog('tab-emby');
-                                };
-                            } else if (SYNC_ERROR) {
-                                statusDiv.className = 'emby-status error';
-                                statusDiv.textContent = SYNC_ERROR;
-                                statusDiv.title = SYNC_ERROR;
-                                statusDiv.style.cursor = 'pointer';
-                                statusDiv.onclick = (e) => {
-                                    e.preventDefault(); e.stopPropagation();
-                                    showSettingsDialog('tab-emby');
-                                };
-                            } else if (Object.keys(LIBRARY_INDEX).length === 0 && LAST_SYNC_TIME === 0) {
-                                statusDiv.className = 'emby-status error';
-                                statusDiv.textContent = '请点击设置并同步服务器';
-                                statusDiv.title = '点击打开EMBY配置';
-                                statusDiv.style.cursor = 'pointer';
-                                statusDiv.onclick = (e) => {
-                                    e.preventDefault(); e.stopPropagation();
-                                    showSettingsDialog('tab-emby');
-                                };
-                            } else {
-                                const videoCode = val.textContent.trim();
-                                const info = LIBRARY_INDEX[videoCode.toUpperCase()];
-                                if (info) {
-                                    statusDiv.className = 'emby-status exists';
-                                    statusDiv.textContent = 'Emby已入库';
-                                    statusDiv.title = `点击打开EMBY\n服务器: ${info.serverName}`;
-                                    statusDiv.onclick = (e) => {
-                                        e.preventDefault(); e.stopPropagation();
-                                        const servers = getServers();
-                                        const currentServer = servers.find(s => s.name === info.serverName) || { url: info.serverUrl };
-                                        const finalUrl = currentServer.url || info.serverUrl;
-                                        const url = `${finalUrl}/web/index.html#!/item?id=${info.itemId}&serverId=${info.serverId}`;
-                                        window.open(url, '_blank');
-                                    };
-                                } else {
-                                    statusDiv.className = 'emby-status not-exists';
-                                    statusDiv.textContent = 'Emby未入库';
-                                    statusDiv.title = '未在服务器中找到';
-                                    statusDiv.onclick = null;
-                                }
-                            }
-                            
-                            if (copyBtn) {
-                                copyBtn.after(statusDiv);
-                            } else {
-                                block.appendChild(statusDiv);
-                            }
-                            console.log('EMBY Checker: EMBY标签已添加');
-                        }
+
+                        const copyBtn = block.querySelector('.copy-to-clipboard');
+
+                        // 添加 Emby 标签
+                        const embyWrap = document.createElement('span');
+                        embyWrap.style.marginLeft = '4px';
+                        if (copyBtn) copyBtn.after(embyWrap);
+                        else block.appendChild(embyWrap);
+                        addStatusIndicator(embyWrap, videoCode, null, null, 'emby');
+
+                        // 添加 Jellyfin 标签
+                        const jellyfinWrap = document.createElement('span');
+                        jellyfinWrap.style.marginLeft = '4px';
+                        embyWrap.after(jellyfinWrap);
+                        addStatusIndicator(jellyfinWrap, videoCode, null, null, 'jellyfin');
+
+                        break;
                     }
-                    break;
                 }
             }
             
@@ -3916,68 +3948,30 @@
                     tags.after(toolsContainer);
                 }
 
-                // 2. 第一行：Emby、女优、预览、磁力
+                // 2. 第一行：Emby 和 Jellyfin 入库状态
+                let statusRow = toolsContainer.querySelector('.emby-status-row');
+                if (!statusRow) {
+                    statusRow = document.createElement('div');
+                    statusRow.className = 'emby-status-row';
+                    statusRow.style.cssText = 'display: flex; flex-wrap: wrap; align-items: center; gap: 3px; width: 100%; overflow: visible;';
+                    toolsContainer.insertBefore(statusRow, toolsContainer.firstChild);
+                } else {
+                    statusRow.querySelectorAll('.emby-status').forEach(el => el.remove());
+                }
+                addStatusIndicator(statusRow, code, item, null, 'emby');
+                addStatusIndicator(statusRow, code, item, null, 'jellyfin');
+
+                // 3. 第二行：短评、预览、磁力
                 let toolsRow = toolsContainer.querySelector('.emby-tools-row');
                 if (!toolsRow) {
                     toolsRow = document.createElement('div');
                     toolsRow.className = 'emby-tools-row';
-                    // 强制水平排列，允许换行，确保在不同宽度的卡片上自适应
                     toolsRow.style.cssText = 'display: flex; flex-wrap: wrap; align-items: center; gap: 3px; width: 100%; overflow: visible;';
                     toolsContainer.appendChild(toolsRow);
-                    
-                    // 按顺序添加
-                    addStatusIndicator(toolsRow, code, item);
-                    
+
                     addShortReviewButton(toolsRow, item, code);
                     addPreviewToggle(toolsRow, item, code);
                     addMagnetToggle(toolsRow, item, code);
-                } else {
-                    // toolsRow 已存在，直接刷新 Emby 状态（保持原来位置顺序）
-                    const existingStatus = toolsRow.querySelector('.emby-status');
-                    if (existingStatus) {
-                        // 直接更新现有标签，不删除重建，避免位置变动
-                        const servers = getServers();
-                        if (servers.length === 0) {
-                            existingStatus.className = 'emby-status not-added';
-                            existingStatus.textContent = '未添加服务器';
-                            existingStatus.title = '点击打开EMBY配置';
-                            existingStatus.style.cursor = 'pointer';
-                            existingStatus.onclick = (e) => { e.preventDefault(); e.stopPropagation(); showSettingsDialog('tab-emby'); };
-                        } else if (SYNC_ERROR) {
-                            existingStatus.className = 'emby-status error';
-                            existingStatus.textContent = SYNC_ERROR;
-                            existingStatus.title = '点击打开EMBY配置';
-                            existingStatus.style.cursor = 'pointer';
-                            existingStatus.onclick = (e) => { e.preventDefault(); e.stopPropagation(); showSettingsDialog('tab-emby'); };
-                        } else if (Object.keys(LIBRARY_INDEX).length === 0 && LAST_SYNC_TIME === 0) {
-                            existingStatus.className = 'emby-status error';
-                            existingStatus.textContent = '请点击设置并同步服务器';
-                            existingStatus.title = '点击打开EMBY配置';
-                            existingStatus.style.cursor = 'pointer';
-                            existingStatus.onclick = (e) => { e.preventDefault(); e.stopPropagation(); showSettingsDialog('tab-emby'); };
-                        } else {
-                            const info = LIBRARY_INDEX[code.toUpperCase()];
-                            if (info) {
-                                existingStatus.className = 'emby-status exists';
-                                existingStatus.textContent = 'Emby已入库';
-                                existingStatus.title = `点击打开EMBY\n服务器: ${info.serverName}`;
-                                existingStatus.onclick = (e) => {
-                                    e.preventDefault(); e.stopPropagation();
-                                    const servers = getServers();
-                                    const currentServer = servers.find(s => s.name === info.serverName) || { url: info.serverUrl };
-                                    const finalUrl = currentServer.url || info.serverUrl;
-                                    const url = `${finalUrl}/web/index.html#!/item?id=${info.itemId}&serverId=${info.serverId}`;
-                                    window.open(url, '_blank');
-                                };
-                            } else {
-                                existingStatus.className = 'emby-status not-exists';
-                                existingStatus.textContent = 'Emby未入库';
-                                existingStatus.title = '未在服务器中找到';
-                                existingStatus.onclick = null;
-                                existingStatus.style.cursor = 'default';
-                            }
-                        }
-                    }
                 }
 
                 // 3. 第二行：搜索按钮（另起一行）
@@ -5356,7 +5350,12 @@
             } catch(e) {
                 LIBRARY_INDEX = {};
             }
-            
+            try {
+                JELLYFIN_LIBRARY_INDEX = JSON.parse(GM_getValue('jellyfin_library_index', '{}'));
+            } catch(e) {
+                JELLYFIN_LIBRARY_INDEX = {};
+            }
+
             // 重新执行检查
             initCheck();
         }
@@ -7857,7 +7856,9 @@
         const config = {
             servers: getServers(),
             libraryIndex: LIBRARY_INDEX,
+            jellyfinLibraryIndex: JELLYFIN_LIBRARY_INDEX,
             lastSyncTime: LAST_SYNC_TIME,
+            jellyfinLastSyncTime: JELLYFIN_LAST_SYNC_TIME,
             backupTime: new Date().toISOString()
         };
         const json = JSON.stringify(config, null, 2);
@@ -7921,9 +7922,17 @@
                 GM_setValue('emby_library_index', JSON.stringify(config.libraryIndex));
                 LIBRARY_INDEX = config.libraryIndex;
             }
+            if (config.jellyfinLibraryIndex) {
+                GM_setValue('jellyfin_library_index', JSON.stringify(config.jellyfinLibraryIndex));
+                JELLYFIN_LIBRARY_INDEX = config.jellyfinLibraryIndex;
+            }
             if (config.lastSyncTime) {
                 GM_setValue('emby_last_sync', config.lastSyncTime);
                 LAST_SYNC_TIME = config.lastSyncTime;
+            }
+            if (config.jellyfinLastSyncTime) {
+                GM_setValue('jellyfin_last_sync', config.jellyfinLastSyncTime);
+                JELLYFIN_LAST_SYNC_TIME = config.jellyfinLastSyncTime;
             }
             return true;
         } catch (e) {
