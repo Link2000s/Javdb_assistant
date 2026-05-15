@@ -11,6 +11,10 @@
 // @match        *://javdb.com/*
 // @match        *://*.javdb.com/*
 // @include      *://*javdb*.com/*
+// @match        *://sehuatang.net/*
+// @match        *://*.sehuatang.net/*
+// @include      *://sehuatang.net/*
+// @include      *://*.sehuatang.net/*
 // @require      https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js
 // @require      https://update.greasyfork.org/scripts/515994/1478507/gh_2215_make_GM_xhr_more_parallel_again.js
 // @require      https://cdn.jsdelivr.net/npm/preact@10.25.4/dist/preact.min.js
@@ -34,9 +38,9 @@
     'use strict';
 
     // ========== 🔥 超级功能 导航菜单按钮参数 ==========
-    const JHS_HOT_URL = '/advanced_search?handlePlayback=1&period=daily';
-    const JHS_TOP_URL = '/advanced_search?handleTop=1&handleType=all&type_value=&page=1';
-    const JHS_FC2_URL = '/advanced_search?type=3&score_min=0&d=1';
+    const JB_HOT_URL = '/advanced_search?handlePlayback=1&period=daily';
+    const JB_TOP_URL = '/advanced_search?handleTop=1&handleType=all&type_value=&page=1';
+    const JB_FC2_URL = '/advanced_search?type=3&score_min=0&d=1';
 
     // ⭐ document-start 立即执行的三件事：
     //   1. 隐藏 超级功能 页面（热播/Top250/FC2）的搜索表单，避免闪烁
@@ -44,9 +48,9 @@
     //   3. 不再使用 visibility:hidden 隐藏导航文字（避免修改后恢复不了的问题）
 
     const urlSearch = window.location.search;
-    const isJhsPage = urlSearch.includes('handlePlayback=1') || urlSearch.includes('handleTop=1') || urlSearch.includes('type=3');
+    const isSpecialPage = urlSearch.includes('handlePlayback=1') || urlSearch.includes('handleTop=1') || urlSearch.includes('type=3');
 
-    // 1. 立即注入 CSS：JHS 页面隐藏搜索表单 + 超级功能下拉菜单 hover/click 支持
+    // 1. 立即注入 CSS：超级功能页面隐藏搜索表单 + 超级功能下拉菜单 hover/click 支持
     const earlyStyle = document.createElement('style');
     earlyStyle.textContent = `
         .navbar-item.has-dropdown:hover .navbar-dropdown,
@@ -54,7 +58,7 @@
             display: block !important;
         }
     `;
-    if (isJhsPage) {
+    if (isSpecialPage) {
         earlyStyle.textContent += `
             .section .container > .box { display: none !important; }
             .empty-message, #sort-toggle-btn { display: none !important; }
@@ -62,29 +66,304 @@
     }
     (document.head || document.documentElement).appendChild(earlyStyle);
 
+    // ========== [新增] 全局排行榜菜单 ==========
+    // 添加返回顶部浮动按钮（替换原紫色排行榜按钮）
+    function addBackToTopFloatButton() {
+        try {
+            if (document.getElementById('emby-backtotop-btn')) return;
+
+            const floatBtn = document.createElement('div');
+            floatBtn.id = 'emby-backtotop-btn';
+            floatBtn.innerHTML = '⬆';
+            floatBtn.title = '返回顶部';
+            floatBtn.style.cssText = `
+                position: fixed;
+                top: calc(50% - 40px);
+                right: 16px;
+                width: 36px;
+                height: 36px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+                cursor: pointer;
+                z-index: 99999;
+                box-shadow: 0 3px 8px rgba(102, 126, 234, 0.4);
+                transition: all 0.3s;
+                color: white;
+                line-height: 1;
+                opacity: 0.85;
+            `;
+
+            floatBtn.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.1)';
+                this.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+            });
+            floatBtn.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1)';
+                this.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+            });
+
+            floatBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            document.body.appendChild(floatBtn);
+
+            // 翻到底部按钮
+            const bottomBtn = document.createElement('div');
+            bottomBtn.id = 'emby-tobottom-btn';
+            bottomBtn.innerHTML = '⬇';
+            bottomBtn.title = '翻到底部';
+            bottomBtn.style.cssText = `
+                position: fixed;
+                top: calc(50% + 0px);
+                right: 16px;
+                width: 36px;
+                height: 36px;
+                background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+                cursor: pointer;
+                z-index: 99999;
+                box-shadow: 0 3px 8px rgba(67, 233, 123, 0.4);
+                transition: all 0.3s;
+                color: white;
+                line-height: 1;
+                opacity: 0.85;
+            `;
+
+            bottomBtn.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.1)';
+                this.style.boxShadow = '0 6px 20px rgba(67, 233, 123, 0.6)';
+            });
+            bottomBtn.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1)';
+                this.style.boxShadow = '0 4px 12px rgba(67, 233, 123, 0.4)';
+            });
+
+            bottomBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            });
+
+            document.body.appendChild(bottomBtn);
+            console.log('JavdbBuddy: 浮动按钮已添加（⬆顶部 + ⬇底部）');
+        } catch(e) {
+            console.error('JavdbBuddy: 添加浮动按钮失败', e);
+        }
+    }
+
+    // 尽早添加浮动按钮（不等待页面完全加载，页面一有可操作区域就显示）
+    (function ensureFloatButtons() {
+        const tryAdd = () => {
+            if (document.body && document.getElementById('emby-backtotop-btn')) return true;
+            if (document.body) { addBackToTopFloatButton(); return true; }
+            return false;
+        };
+        if (tryAdd()) return;
+
+        // 兜底轮询：每 80ms 检查一次，一旦 body 出现立即添加
+        let intervalId = setInterval(() => {
+            if (tryAdd()) {
+                clearInterval(intervalId);
+                if (obs) { obs.disconnect(); }
+            }
+        }, 80);
+
+        // MutationObserver 快速响应：即使 documentElement 暂时为 null，也轮询等待它出现
+        let obs;
+        const startObserver = () => {
+            if (document.documentElement) {
+                obs = new MutationObserver(() => {
+                    if (tryAdd()) {
+                        obs.disconnect();
+                        clearInterval(intervalId);
+                    }
+                });
+                obs.observe(document.documentElement, { childList: true, subtree: true });
+            } else {
+                setTimeout(startObserver, 50);
+            }
+        };
+        startObserver();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            clearInterval(intervalId);
+            if (obs) { obs.disconnect(); }
+            tryAdd();
+        });
+    })();
+
+    // ---------- 导航栏增强 ----------
+    function jbAddNavigation() {
+        const navbarEnd = document.querySelector('.navbar-end, .navbar-menu .navbar-end');
+        if (!navbarEnd) return;
+
+        // 避免重复添加
+        if (document.querySelector('.jb-nav-item')) return;
+
+        // 添加设置按钮
+        const settingsBtn = document.createElement('a');
+        settingsBtn.className = 'navbar-item jb-nav-item';
+        settingsBtn.id = 'jb-nav-settings';
+        settingsBtn.href = 'javascript:void(0);';
+        settingsBtn.innerHTML = `<span style="font-weight:bold;color:#3498db;">⚙️ 设置</span>`;
+        settingsBtn.style.cssText = 'padding: 0.5rem 0.75rem; font-size: 14px;';
+        settingsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[JB] 设置按钮被点击');
+            // 使用 try-catch 确保即使出错也不会影响页面
+            try {
+                const sd = (typeof showSettingsDialog === 'function' && showSettingsDialog) || (typeof window.showSettingsDialog === 'function' && window.showSettingsDialog);
+                if (sd) {
+                    sd();
+                    console.log('[JB] 设置对话框已打开');
+                    return;
+                }
+
+                console.warn('[JB] showSettingsDialog 尚未加载，尝试强制启动...');
+                // 尝试强制执行 initMainScript（可能被 bypassCloudflare 阻塞）
+                if (typeof initMainScript === 'function' && !window.__jb_init_done) {
+                    try {
+                        initMainScript();
+                        console.log('[JB] 强制启动 initMainScript 成功');
+                    } catch (initErr) {
+                        console.error('[JB] 强制启动 initMainScript 失败:', initErr);
+                    }
+                }
+
+                const sd2 = (typeof showSettingsDialog === 'function' && showSettingsDialog) || (typeof window.showSettingsDialog === 'function' && window.showSettingsDialog);
+                if (sd2) {
+                    sd2();
+                    console.log('[JB] 设置对话框已打开（强制启动后）');
+                    return;
+                }
+
+                // 脚本主体可能仍在加载，轮询等待
+                let waitCount = 0;
+                const maxWait = 50; // 最多等 5 秒
+                const toast = document.createElement('div');
+                toast.textContent = '⚙️ 设置功能加载中，请稍候...';
+                toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#3498db;color:white;padding:10px 20px;border-radius:4px;z-index:999999;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+                document.body.appendChild(toast);
+                const waitTimer = setInterval(() => {
+                    waitCount++;
+                    const sd = (typeof showSettingsDialog === 'function' && showSettingsDialog) || (typeof window.showSettingsDialog === 'function' && window.showSettingsDialog);
+                    if (sd) {
+                        clearInterval(waitTimer);
+                        toast.remove();
+                        sd();
+                        console.log('[JB] 设置对话框已打开（延迟加载）');
+                    } else if (waitCount >= maxWait) {
+                        clearInterval(waitTimer);
+                        toast.remove();
+                        console.error('[JB] showSettingsDialog 函数未定义');
+                        alert('设置功能加载失败，请刷新页面重试');
+                    }
+                }, 100);
+            } catch (err) {
+                console.error('[JB] 打开设置失败:', err);
+                alert('打开设置时出错: ' + err.message);
+            }
+        });
+
+        // 插入到 navbar-end 的第一个子元素之前（即"跟随系统"左侧）
+        const firstChild = navbarEnd.firstElementChild;
+        if (firstChild) {
+            navbarEnd.insertBefore(settingsBtn, firstChild);
+        } else {
+            navbarEnd.appendChild(settingsBtn);
+        }
+
+        // Hook 网站原有导航按钮补充处理（MutationObserver 已在 document-start 处理了 href 重定向）
+        jbHookOriginalNavButtons();
+    }
+
+    // 尽早添加设置按钮（不等待页面完全加载，监听 navbar-end 出现即插入）
+    (function ensureSettingsButton() {
+        const tryAdd = () => {
+            if (document.querySelector('.jb-nav-item')) return true;
+            const navbarEnd = document.querySelector('.navbar-end, .navbar-menu .navbar-end');
+            if (navbarEnd) { jbAddNavigation(); return true; }
+            return false;
+        };
+        if (tryAdd()) return;
+
+        // 兜底轮询：每 80ms 检查一次，一旦 navbar-end 出现立即添加
+        let intervalId = setInterval(() => {
+            if (tryAdd()) {
+                clearInterval(intervalId);
+                if (obs) { obs.disconnect(); }
+            }
+        }, 80);
+
+        // MutationObserver 快速响应：即使 documentElement 暂时为 null，也轮询等待它出现
+        let obs;
+        const startObserver = () => {
+            if (document.documentElement) {
+                obs = new MutationObserver(() => {
+                    if (tryAdd()) {
+                        obs.disconnect();
+                        clearInterval(intervalId);
+                    }
+                });
+                obs.observe(document.documentElement, { childList: true, subtree: true });
+            } else {
+                setTimeout(startObserver, 50);
+            }
+        };
+        startObserver();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            clearInterval(intervalId);
+            if (obs) { obs.disconnect(); }
+            tryAdd();
+        });
+    })();
+
+    // Hook 网站原有的导航按钮补充处理（仅处理 MutationObserver 覆盖不到的部分）
+    function jbHookOriginalNavButtons() {
+        // 1. "猜你喜歡" tab 替换为 Top250（照搬 JavdbBuddy）
+        document.querySelectorAll('.main-tabs ul li, .tabs ul li').forEach(li => {
+            if (li.textContent.includes('猜你喜歡') || li.textContent.includes('猜你喜欢')) {
+                li.innerHTML = `<a href="${JB_TOP_URL}"><span>Top250</span></a>`;
+            }
+        });
+    }
+
     // 2. MutationObserver 第一时间监控 DOM 变化，立即修改导航栏
-    const jhsNavObserver = new MutationObserver(() => {
+    const jbNavObserver = new MutationObserver(() => {
         // 2a. "排行榜" → "🔥超级功能"
         document.querySelectorAll('.navbar-item.has-dropdown a.navbar-link').forEach(link => {
-            if (link.textContent.trim() === '排行榜' && !link.dataset.jhsDone) {
+            if (link.textContent.trim() === '排行榜' && !link.dataset.jbDone) {
                 link.innerHTML = '🔥<span style="color:#ff4444;font-weight:bold;text-shadow:0 0 8px rgba(255,68,68,0.5);">超级功能</span>';
                 // 不修改 href，确保下拉菜单能正常展开
-                link.dataset.jhsDone = '1';
+                link.dataset.jbDone = '1';
 
                 const parent = link.closest('.navbar-item.has-dropdown');
                 const dropdown = parent?.querySelector('.navbar-dropdown');
-                if (dropdown && !dropdown.dataset.jhsDone) {
+                if (dropdown && !dropdown.dataset.jbDone) {
                     dropdown.innerHTML = `
-                        <a class="navbar-item" href="${JHS_HOT_URL}">🔥 热播</a>
-                        <a class="navbar-item" href="${JHS_TOP_URL}">🏆 Top250</a>
+                        <a class="navbar-item" href="${JB_HOT_URL}">🔥 热播</a>
+                        <a class="navbar-item" href="${JB_TOP_URL}">🏆 Top250</a>
                         <hr class="navbar-divider">
                         <a class="navbar-item" href="/tags?c10=1">有碼</a>
                         <a class="navbar-item" href="/tags?c10=2">無碼</a>
                         <a class="navbar-item" href="/tags?c10=3">歐美</a>
-                        <a class="navbar-item" href="${JHS_FC2_URL}">FC2</a>
+                        <a class="navbar-item" href="${JB_FC2_URL}">FC2</a>
                         <a class="navbar-item" href="/tags?c10=4">FANZA(DMM)成人獎</a>
                     `;
-                    dropdown.dataset.jhsDone = '1';
+                    dropdown.dataset.jbDone = '1';
                 }
 
                 // 点击展开/收起下拉菜单
@@ -97,28 +376,28 @@
         });
         // 2b. 热播 / Top250 href 重定向
         document.querySelectorAll('a[href*="rankings/playback"]').forEach(a => {
-            if (!a.dataset.jhsDone) { a.setAttribute('href', JHS_HOT_URL); a.dataset.jhsDone = '1'; }
+            if (!a.dataset.jbDone) { a.setAttribute('href', JB_HOT_URL); a.dataset.jbDone = '1'; }
         });
         document.querySelectorAll('a[href*="rankings/top"]').forEach(a => {
-            if (!a.dataset.jhsDone) { a.setAttribute('href', JHS_TOP_URL); a.dataset.jhsDone = '1'; }
+            if (!a.dataset.jbDone) { a.setAttribute('href', JB_TOP_URL); a.dataset.jbDone = '1'; }
         });
         // 2c. FC2 href 重定向
         document.querySelectorAll('.navbar-item').forEach(el => {
-            if (el.textContent.trim() === 'FC2' && !el.dataset.jhsDone) {
-                el.setAttribute('href', JHS_FC2_URL);
-                el.dataset.jhsDone = '1';
+            if (el.textContent.trim() === 'FC2' && !el.dataset.jbDone) {
+                el.setAttribute('href', JB_FC2_URL);
+                el.dataset.jbDone = '1';
             }
         });
         document.querySelectorAll('.tabs a').forEach(el => {
-            if (el.textContent.trim() === 'FC2' && !el.dataset.jhsDone) {
-                el.setAttribute('href', JHS_FC2_URL);
-                el.dataset.jhsDone = '1';
+            if (el.textContent.trim() === 'FC2' && !el.dataset.jbDone) {
+                el.setAttribute('href', JB_FC2_URL);
+                el.dataset.jbDone = '1';
             }
         });
     });
-    jhsNavObserver.observe(document.documentElement, { childList: true, subtree: true });
+    jbNavObserver.observe(document.documentElement, { childList: true, subtree: true });
     // 10 秒后清理观察器（防内存泄漏）
-    setTimeout(() => jhsNavObserver.disconnect(), 10000);
+    setTimeout(() => jbNavObserver.disconnect(), 10000);
 
     // ⭐ 立即执行的测试日志
     console.log('%c✅ JAVDB全能助手 已加载', 'color: green; font-size: 16px; font-weight: bold;');
@@ -313,35 +592,18 @@
 
     // ========== [新增] 自动静默过 Cloudflare 验证 ==========
     function bypassCloudflare() {
-        // 检测是否是 Cloudflare 验证页面（多种检测方式）
+        // 检测是否是 Cloudflare 验证页面（只检测真正需要等待的验证状态）
         const title = document.title || '';
-        const bodyText = document.body?.innerText || '';
-        const bodyHTML = document.body?.innerHTML || '';
         
+        // 核心判断：页面标题是 CF 验证标题，或存在挑战表单
         const isCFPage = 
-            // 标题检测
             title.includes('Just a moment') || 
             title.includes('请稍候') ||
             title.includes('Attention Required') ||
-            // 内容检测
-            bodyText.includes('Checking your browser') ||
-            bodyText.includes('正在检查您的浏览器') ||
-            bodyText.includes('Verify you are human') ||
-            bodyText.includes('验证您是真人') ||
-            // Turnstile 验证框检测
-            document.querySelector('input[name="cf-turnstile-response"]') !== null ||
-            document.querySelector('#cf-turnstile') !== null ||
-            document.querySelector('.cf-turnstile') !== null ||
-            document.querySelector('[data-cf-turnstile]') !== null ||
-            // Cloudflare 挑战页面特征
-            document.querySelector('#challenge-form') !== null ||
-            document.querySelector('.challenge-form') !== null ||
-            // JAVDB 特定检测
-            bodyHTML.includes('cf-turnstile') ||
-            bodyHTML.includes('turnstile') && bodyHTML.includes('challenge');
+            document.querySelector('#challenge-form') !== null;
         
         if (isCFPage) {
-            console.log('%c🛡️ Cloudflare/Turnstile 验证页面检测，等待自动完成...', 'color: orange; font-size: 14px;');
+            console.log('%c🛡️ Cloudflare 验证页面检测，等待自动完成...', 'color: orange; font-size: 14px;');
             
             // 尝试自动点击验证复选框（如果存在）
             const turnstileCheckbox = document.querySelector('.cf-turnstile input[type="checkbox"]') || 
@@ -371,7 +633,7 @@
             
             // 监听页面变化，一旦验证完成就继续执行
             let checkCount = 0;
-            const maxChecks = 60; // 最多检查60次（约60秒）
+            const maxChecks = 15; // 最多检查15次（约15秒）
             
             const checkInterval = setInterval(() => {
                 checkCount++;
@@ -379,18 +641,16 @@
                 const isStillCF = currentTitle.includes('Just a moment') || 
                                   currentTitle.includes('请稍候') ||
                                   currentTitle.includes('Attention Required') ||
-                                  document.querySelector('.cf-turnstile') !== null ||
                                   document.querySelector('#challenge-form') !== null;
                 
                 if (!isStillCF || checkCount >= maxChecks) {
                     clearInterval(checkInterval);
                     if (!isStillCF) {
                         console.log('%c✅ Cloudflare 验证已通过，继续加载脚本...', 'color: green;');
-                        initMainScript();
                     } else {
                         console.log('%c⚠️ Cloudflare 验证超时，尝试直接加载脚本...', 'color: orange;');
-                        initMainScript();
                     }
+                    initMainScript();
                 }
             }, 1000);
             
@@ -418,7 +678,13 @@
     
     // 主脚本入口函数
     function initMainScript() {
+        if (window.__jb_init_done) {
+            console.log('[JB] initMainScript 已执行过，跳过');
+            return;
+        }
+        console.log('[JB] initMainScript 开始执行');
     
+    try {
     // 立即检查页面类型
     const isDetailPage = window.location.pathname.startsWith('/v/');
     console.log('是否是详情页:', isDetailPage);
@@ -493,102 +759,7 @@
         }, 30000);
     }
 
-    // ========== [新增] 全局排行榜菜单 ==========
-    // 添加返回顶部浮动按钮（替换原紫色排行榜按钮）
-    function addBackToTopFloatButton() {
-        try {
-            if (document.getElementById('emby-backtotop-btn')) return;
 
-            const floatBtn = document.createElement('div');
-            floatBtn.id = 'emby-backtotop-btn';
-            floatBtn.innerHTML = '⬆';
-            floatBtn.title = '返回顶部';
-            floatBtn.style.cssText = `
-                position: fixed;
-                top: calc(50% - 40px);
-                right: 16px;
-                width: 36px;
-                height: 36px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 18px;
-                cursor: pointer;
-                z-index: 99999;
-                box-shadow: 0 3px 8px rgba(102, 126, 234, 0.4);
-                transition: all 0.3s;
-                color: white;
-                line-height: 1;
-                opacity: 0.85;
-            `;
-
-            floatBtn.addEventListener('mouseenter', function() {
-                this.style.transform = 'scale(1.1)';
-                this.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
-            });
-            floatBtn.addEventListener('mouseleave', function() {
-                this.style.transform = 'scale(1)';
-                this.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
-            });
-
-            floatBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            });
-
-            document.body.appendChild(floatBtn);
-
-            // 翻到底部按钮
-            const bottomBtn = document.createElement('div');
-            bottomBtn.id = 'emby-tobottom-btn';
-            bottomBtn.innerHTML = '⬇';
-            bottomBtn.title = '翻到底部';
-            bottomBtn.style.cssText = `
-                position: fixed;
-                top: calc(50% + 0px);
-                right: 16px;
-                width: 36px;
-                height: 36px;
-                background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 18px;
-                cursor: pointer;
-                z-index: 99999;
-                box-shadow: 0 3px 8px rgba(67, 233, 123, 0.4);
-                transition: all 0.3s;
-                color: white;
-                line-height: 1;
-                opacity: 0.85;
-            `;
-
-            bottomBtn.addEventListener('mouseenter', function() {
-                this.style.transform = 'scale(1.1)';
-                this.style.boxShadow = '0 6px 20px rgba(67, 233, 123, 0.6)';
-            });
-            bottomBtn.addEventListener('mouseleave', function() {
-                this.style.transform = 'scale(1)';
-                this.style.boxShadow = '0 4px 12px rgba(67, 233, 123, 0.4)';
-            });
-
-            bottomBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-            });
-
-            document.body.appendChild(bottomBtn);
-            console.log('EMBY Checker: 浮动按钮已添加（⬆顶部 + ⬇底部）');
-        } catch(e) {
-            console.error('EMBY Checker: 添加浮动按钮失败', e);
-        }
-    }
-    
     // ========== [新增] 98堂自动搜索逻辑 ==========
     if (window.location.host.includes('sehuatang.net')) {
         if (window.location.search.includes('srchtxt=')) {
@@ -645,7 +816,7 @@
         return;
     }
 
-    console.log('EMBY Checker: 脚本启动');
+    console.log('JavdbBuddy: 脚本启动');
 
     // 默认媒体服务器配置（空列表）
     const DEFAULT_SERVERS = [];
@@ -658,7 +829,7 @@
     try {
         LIBRARY_INDEX = JSON.parse(GM_getValue('emby_library_index', '{}'));
     } catch(e) {
-        console.error('EMBY Checker: 解析索引失败', e);
+        console.error('JavdbBuddy: 解析索引失败', e);
         LIBRARY_INDEX = {};
     }
     try {
@@ -718,7 +889,7 @@
         if (isEmby) SYNC_ERROR = '';
         else JELLYFIN_SYNC_ERROR = '';
 
-        console.log(`Media Checker: 开始同步 ${type} 全量库...`);
+        console.log(`JavdbBuddy: 开始同步 ${type} 全量库...`);
         const newIndex = {};
         let totalCount = 0;
         let hasSuccess = false;
@@ -744,7 +915,7 @@
                     });
                 }
             } catch (e) {
-                console.error(`Media Checker: 同步 ${type} 服务器 ${server.name} 失败:`, e);
+                console.error(`JavdbBuddy: 同步 ${type} 服务器 ${server.name} 失败:`, e);
                 server.lastError = true;
                 server.statusMsg = e.toString() || '连接失败';
                 if (isEmby) SYNC_ERROR = server.statusMsg;
@@ -752,7 +923,10 @@
             }
         }
 
-        saveServers(servers);
+        // 保存所有服务器，保留其他类型的服务器配置不被覆盖
+        const allServers = getServers();
+        const otherServers = allServers.filter(s => (s.type || 'emby') !== type);
+        saveServers([...otherServers, ...servers]);
 
         if (hasSuccess) {
             if (isEmby) SYNC_ERROR = '';
@@ -774,7 +948,7 @@
         }
         GM_setValue(lastSyncKey, Date.now());
 
-        console.log(`Media Checker: ${type} 全量同步完成，共计 ${totalCount} 个番号。`);
+        console.log(`JavdbBuddy: ${type} 全量同步完成，共计 ${totalCount} 个番号。`);
     }
 
     // 分页获取媒体服务器所有项目（Emby / Jellyfin API 兼容）
@@ -803,7 +977,7 @@
         });
     }
 
-    // 获取列表项中的详情页链接（兼容原生列表和 JHS 自定义列表）
+    // 获取列表项中的详情页链接（兼容原生列表和 自定义列表）
     function getDetailLink(itemEl) {
         const link = itemEl.querySelector('a[href^="/v/"]');
         if (link) return link;
@@ -841,8 +1015,14 @@
     }
 
     // 菜单
-    GM_registerMenuCommand('🔄 立即同步媒体库', () => syncFullLibrary(manualSyncCallback));
-    GM_registerMenuCommand('⚙️ 媒体服务器设置', showSettingsDialog);
+    try {
+        if (typeof GM_registerMenuCommand === 'function') {
+            GM_registerMenuCommand('🔄 立即同步媒体库', () => syncFullLibrary(manualSyncCallback));
+            GM_registerMenuCommand('⚙️ 媒体服务器设置', showSettingsDialog);
+        }
+    } catch (e) {
+        console.warn('[JB] GM_registerMenuCommand 不可用:', e);
+    }
 
     function manualSyncCallback() {
         syncFullLibrary(true);
@@ -851,6 +1031,53 @@
     // 设置对话框
     function showSettingsDialog(activeTab = '') {
         const servers = getServers();
+
+        // 辅助函数：生成单个服务器卡片HTML
+        function renderServerCardHTML(server, index) {
+            const shouldExpand = !server.url || !server.apiKey;
+            const arrowIcon = shouldExpand ? '▲' : '▼';
+            let statusHtml = '';
+            if (server.lastError) {
+                statusHtml = `<span style="margin-left:10px;padding:1px 6px;background:#ff9800;color:white;border-radius:3px;font-size:10px;font-weight:normal;">${server.statusMsg || '连接失败'}</span>`;
+            } else if (server.statusMsg === '在线已连接') {
+                statusHtml = `<span style="margin-left:10px;padding:1px 6px;background:#4CAF50;color:white;border-radius:3px;font-size:10px;font-weight:normal;">在线已连接</span>`;
+            } else {
+                statusHtml = `<span style="margin-left:10px;padding:1px 6px;background:#9e9e9e;color:white;border-radius:3px;font-size:10px;font-weight:normal;">待同步/未连接</span>`;
+            }
+            const serverType = server.type || 'emby';
+            const typeLabel = serverType === 'emby' ? 'Emby' : 'Jellyfin';
+            return `
+            <div class="server-item" data-index="${index}" style="border:1px solid #ddd;margin-bottom:10px;border-radius:4px;">
+                <div class="server-header" style="padding:12px 15px;background:#f8f9fa;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="const body = document.getElementById('server-body-${index}'); const arrow = document.getElementById('server-arrow-${index}'); body.style.display = body.style.display === 'none' ? 'block' : 'none'; arrow.textContent = body.style.display === 'none' ? '▼' : '▲';">
+                    <div style="display:flex;align-items:center;">
+                        <span style="margin-right:8px;padding:1px 6px;background:${serverType === 'emby' ? '#4CAF50' : '#673AB7'};color:white;border-radius:3px;font-size:10px;">${typeLabel}</span>
+                        <strong style="font-size:14px;">${server.name || typeLabel}</strong>
+                        ${statusHtml}
+                    </div>
+                    <span id="server-arrow-${index}" style="color:#999;font-size:12px;transition:transform 0.2s;">${arrowIcon}</span>
+                </div>
+                <div id="server-body-${index}" style="padding:15px;display:${shouldExpand ? 'block' : 'none'};">
+                    <input type="hidden" id="type-${index}" value="${serverType}" />
+                    <div style="margin-bottom:8px;">
+                        <label style="display:inline-block;width:140px;font-weight:bold;">服务器名称：</label>
+                        <input type="text" id="name-${index}" value="${server.name === '新服务器' || !server.name ? typeLabel : server.name}" placeholder="例如：主服务器" style="width:calc(100% - 150px);padding:5px;" />
+                    </div>
+                    <div style="margin-bottom:8px;">
+                        <label style="display:inline-block;width:140px;font-weight:bold;">服务器地址：</label>
+                        <input type="text" id="url-${index}" value="${server.url}" placeholder="例如：http://192.168.1.100:8096" style="width:calc(100% - 150px);padding:5px;" />
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:inline-block;width:140px;font-weight:bold;">API Key：</label>
+                        <input type="text" id="key-${index}" value="${server.apiKey}" placeholder="32位API密钥" style="width:calc(100% - 150px);padding:5px;" />
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="connect-server-btn" data-index="${index}" style="background:#2196F3;color:white;border:none;padding:5px 15px;border-radius:3px;cursor:pointer;">连接</button>
+                        <button class="remove-server-btn" data-index="${index}" style="background:#f44336;color:white;border:none;padding:5px 15px;border-radius:3px;cursor:pointer;">删除</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+
         const overlay = document.createElement('div');
         overlay.id = 'emby-settings-overlay';
         overlay.style = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:999999;display:flex;align-items:center;justify-content:center;';
@@ -861,6 +1088,9 @@
         const openInNewTab = GM_getValue('jb_open_in_new_tab', false);
         const openAllLinksInNewTab = GM_getValue('jb_open_all_links_in_new_tab', false);
         const openInPopup = GM_getValue('jb_open_in_popup', false);
+        const webdavUrl = GM_getValue('jb_webdav_url', '');
+        const webdavUser = GM_getValue('jb_webdav_user', '');
+        const webdavPass = GM_getValue('jb_webdav_pass', '');
         let html = `
             <div style="background:white;border-radius:8px;width:800px;height:80vh;display:flex;overflow:hidden;font-family:sans-serif;color:#333;">
                 <!-- 左侧分类栏 -->
@@ -911,73 +1141,40 @@
                                 3. <strong>保存并同步</strong>：点击下方蓝色按钮，脚本将<strong>立即连接</strong>所有已填写的服务器并<strong>全量抓取</strong>番号数据。只有同步成功后，页面才会显示入库状态。<br>
                                 4. <strong>入库检查方式</strong>：脚本会同步服务器中所有视频的标题并建立本地索引，实现秒级比对。同时脚本具备<strong>实时秒同步</strong>能力，当您在服务器中<strong>增加或删除</strong>媒体视频后，页面状态也会实时感知并同步更新，无需手动干预。
                             </div>
-                            <div id="server-list-container">`;
-        
+                            <!-- Emby 区域 -->
+                            <div style="margin-bottom:20px;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #4CAF50;">
+                                    <span style="padding:2px 8px;background:#4CAF50;color:white;border-radius:3px;font-size:12px;">Emby</span>
+                                    <strong style="font-size:15px;">Emby 服务器配置</strong>
+                                </div>
+                                <div id="emby-server-list-container">`;
         servers.forEach((server, index) => {
-            // 判断是否应该默认展开：只有未填写完整的服务器才展开
-            const shouldExpand = !server.url || !server.apiKey;
-                const arrowIcon = shouldExpand ? '▲' : '▼';
-                
-                // 获取服务器连接状态显示
-                let statusHtml = '';
-                if (server.lastError) {
-                    statusHtml = `<span style="margin-left:10px;padding:1px 6px;background:#ff9800;color:white;border-radius:3px;font-size:10px;font-weight:normal;">${server.statusMsg || '连接失败'}</span>`;
-                } else if (server.statusMsg === '在线已连接') {
-                    statusHtml = `<span style="margin-left:10px;padding:1px 6px;background:#4CAF50;color:white;border-radius:3px;font-size:10px;font-weight:normal;">在线已连接</span>`;
-                } else {
-                    statusHtml = `<span style="margin-left:10px;padding:1px 6px;background:#9e9e9e;color:white;border-radius:3px;font-size:10px;font-weight:normal;">待同步/未连接</span>`;
-                }
-
-                const serverType = server.type || 'emby';
-                const typeLabel = serverType === 'emby' ? 'Emby' : 'Jellyfin';
-                html += `
-                <div class="server-item" style="border:1px solid #ddd;margin-bottom:10px;border-radius:4px;">
-                    <div class="server-header" style="padding:12px 15px;background:#f8f9fa;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="const body = document.getElementById('server-body-${index}'); const arrow = document.getElementById('server-arrow-${index}'); body.style.display = body.style.display === 'none' ? 'block' : 'none'; arrow.textContent = body.style.display === 'none' ? '▼' : '▲';">
-                        <div style="display:flex;align-items:center;">
-                            <span style="margin-right:8px;padding:1px 6px;background:${serverType === 'emby' ? '#4CAF50' : '#673AB7'};color:white;border-radius:3px;font-size:10px;">${typeLabel}</span>
-                            <strong style="font-size:14px;">${server.name || typeLabel}</strong>
-                            ${statusHtml}
-                        </div>
-                        <span id="server-arrow-${index}" style="color:#999;font-size:12px;transition:transform 0.2s;">${arrowIcon}</span>
-                    </div>
-                    <div id="server-body-${index}" style="padding:15px;display:${shouldExpand ? 'block' : 'none'};">
-                        <div style="margin-bottom:8px;">
-                            <label style="display:inline-block;width:140px;font-weight:bold;">服务器类型：</label>
-                            <select id="type-${index}" style="width:calc(100% - 150px);padding:5px;">
-                                <option value="emby" ${serverType === 'emby' ? 'selected' : ''}>Emby</option>
-                                <option value="jellyfin" ${serverType === 'jellyfin' ? 'selected' : ''}>Jellyfin</option>
-                            </select>
-                        </div>
-                        <div style="margin-bottom:8px;">
-                            <label style="display:inline-block;width:140px;font-weight:bold;">服务器名称：</label>
-                            <input type="text" id="name-${index}" value="${server.name === '新服务器' || !server.name ? typeLabel : server.name}" placeholder="例如：主服务器" style="width:calc(100% - 150px);padding:5px;" />
-                        </div>
-                        <div style="margin-bottom:8px;">
-                            <label style="display:inline-block;width:140px;font-weight:bold;">服务器地址：</label>
-                            <input type="text" id="url-${index}" value="${server.url}" placeholder="例如：http://192.168.1.100:8096" style="width:calc(100% - 150px);padding:5px;" />
-                        </div>
-                        <div style="margin-bottom:12px;">
-                            <label style="display:inline-block;width:140px;font-weight:bold;">API Key：</label>
-                            <input type="text" id="key-${index}" value="${server.apiKey}" placeholder="32位API密钥" style="width:calc(100% - 150px);padding:5px;" />
-                        </div>
-                        <div style="display:flex;gap:8px;">
-                            <button class="connect-server-btn" data-index="${index}" style="background:#2196F3;color:white;border:none;padding:5px 15px;border-radius:3px;cursor:pointer;">连接</button>
-                            <button class="remove-server-btn" data-index="${index}" style="background:#f44336;color:white;border:none;padding:5px 15px;border-radius:3px;cursor:pointer;">删除</button>
-                        </div>
-                    </div>
-                </div>`;
+            if ((server.type || 'emby') === 'emby') {
+                html += renderServerCardHTML(server, index);
+            }
         });
-        
-        // 读取 WebDAV 设置
-        const webdavUrl = GM_getValue('jb_webdav_url', '');
-        const webdavUser = GM_getValue('jb_webdav_user', '');
-        const webdavPass = GM_getValue('jb_webdav_pass', '');
-
         html += `
+                                </div>
+                                <button id="add-emby-server-btn" style="background:#4CAF50;color:white;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;margin-top:10px;">➕ 添加 Emby 服务器</button>
+                            </div>
+                            <!-- Jellyfin 区域 -->
+                            <div style="margin-bottom:20px;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #673AB7;">
+                                    <span style="padding:2px 8px;background:#673AB7;color:white;border-radius:3px;font-size:12px;">Jellyfin</span>
+                                    <strong style="font-size:15px;">Jellyfin 服务器配置</strong>
+                                </div>
+                                <div id="jellyfin-server-list-container">`;
+        servers.forEach((server, index) => {
+            if ((server.type || 'emby') === 'jellyfin') {
+                html += renderServerCardHTML(server, index);
+            }
+        });
+        html += `
+                                </div>
+                                <button id="add-jellyfin-server-btn" style="background:#673AB7;color:white;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;margin-top:10px;">➕ 添加 Jellyfin 服务器</button>
                             </div>
                             <div style="display:flex;gap:10px;margin-top:15px;">
-                                <button id="add-server-btn" style="background:#4CAF50;color:white;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;">➕ 添加 emby 服务器</button>
-                                <button id="save-servers-btn" style="background:#2196F3;color:white;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;" title="保存所有服务器配置并立即同步EMBY媒体库">💾 保存并同步</button>
+                                <button id="save-servers-btn" style="background:#2196F3;color:white;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;" title="保存所有服务器配置并立即同步媒体库">💾 保存并同步</button>
                             </div>
                         </div>
 
@@ -986,6 +1183,13 @@
                                 <div>
                                     <h4 style="margin:0 0 10px 0;font-size:14px;color:#333;">☁️ WebDAV 备份</h4>
                                     <div style="display:flex;flex-direction:column;gap:10px;max-width:500px;">
+                                        <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:4px;padding:10px 12px;font-size:12px;color:#555;line-height:1.6;">
+                                            <div style="font-weight:bold;color:#333;margin-bottom:4px;">💡 地址填写说明</div>
+                                            <div>• 通用格式：<code style="background:#e9ecef;padding:1px 4px;border-radius:3px;">http(s)://IP:端口/文件夹路径</code></div>
+                                            <div>• <b>Alist 用户</b>：必须带 <code style="background:#e9ecef;padding:1px 4px;border-radius:3px;">/dav/</code> 路径，例如：<code style="background:#e9ecef;padding:1px 4px;border-radius:3px;">http://192.168.1.10:5244/dav/夸克网盘/备份</code></div>
+                                            <div>• 若地址不含 <code style="background:#e9ecef;padding:1px 4px;border-radius:3px;">/dav/</code> 且端口为 5244，脚本会自动补全</div>
+                                            <div>• 中文路径可直接粘贴，脚本会自动编码</div>
+                                        </div>
                                         <div style="display:flex;align-items:center;gap:8px;">
                                             <label style="display:inline-block;width:80px;font-size:13px;color:#666;">服务器地址：</label>
                                             <input type="text" id="jb-webdav-url" value="${webdavUrl.replace(/"/g,'&quot;')}" placeholder="https://dav.example.com/javdb/" style="flex:1;padding:8px;font-size:13px;border:1px solid #ddd;border-radius:4px;">
@@ -1112,34 +1316,32 @@
             autoSave();
             overlay.remove();
         };
-        document.getElementById('add-server-btn').onclick = () => {
+        function addServerByType(type) {
             const newIndex = servers.length;
-            servers.push({ url: '', apiKey: '', name: 'emby', type: 'emby' });
+            const defaultName = type === 'emby' ? 'emby' : 'jellyfin';
+            servers.push({ url: '', apiKey: '', name: defaultName, type: type });
             saveServers(servers);
-            const container = document.getElementById('server-list-container');
+            const containerId = type === 'emby' ? 'emby-server-list-container' : 'jellyfin-server-list-container';
+            const container = document.getElementById(containerId);
             if (!container) return;
             const statusHtml = `<span style="margin-left:10px;padding:1px 6px;background:#9e9e9e;color:white;border-radius:3px;font-size:10px;font-weight:normal;">待同步/未连接</span>`;
+            const typeLabel = type === 'emby' ? 'Emby' : 'Jellyfin';
+            const bgColor = type === 'emby' ? '#4CAF50' : '#673AB7';
             const itemHtml = `
             <div class="server-item" style="border:1px solid #ddd;margin-bottom:10px;border-radius:4px;">
                 <div class="server-header" style="padding:12px 15px;background:#f8f9fa;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="const body = document.getElementById('server-body-${newIndex}'); const arrow = document.getElementById('server-arrow-${newIndex}'); body.style.display = body.style.display === 'none' ? 'block' : 'none'; arrow.textContent = body.style.display === 'none' ? '▼' : '▲';">
                     <div style="display:flex;align-items:center;">
-                        <span style="margin-right:8px;padding:1px 6px;background:#4CAF50;color:white;border-radius:3px;font-size:10px;">Emby</span>
-                        <strong style="font-size:14px;">emby</strong>
+                        <span style="margin-right:8px;padding:1px 6px;background:${bgColor};color:white;border-radius:3px;font-size:10px;">${typeLabel}</span>
+                        <strong style="font-size:14px;">${defaultName}</strong>
                         ${statusHtml}
                     </div>
                     <span id="server-arrow-${newIndex}" style="color:#999;font-size:12px;transition:transform 0.2s;">▲</span>
                 </div>
                 <div id="server-body-${newIndex}" style="padding:15px;display:block;">
-                    <div style="margin-bottom:8px;">
-                        <label style="display:inline-block;width:140px;font-weight:bold;">服务器类型：</label>
-                        <select id="type-${newIndex}" style="width:calc(100% - 150px);padding:5px;">
-                            <option value="emby" selected>Emby</option>
-                            <option value="jellyfin">Jellyfin</option>
-                        </select>
-                    </div>
+                    <input type="hidden" id="type-${newIndex}" value="${type}" />
                     <div style="margin-bottom:8px;">
                         <label style="display:inline-block;width:140px;font-weight:bold;">服务器名称：</label>
-                        <input type="text" id="name-${newIndex}" value="emby" placeholder="例如：主服务器" style="width:calc(100% - 150px);padding:5px;" />
+                        <input type="text" id="name-${newIndex}" value="${defaultName}" placeholder="例如：主服务器" style="width:calc(100% - 150px);padding:5px;" />
                     </div>
                     <div style="margin-bottom:8px;">
                         <label style="display:inline-block;width:140px;font-weight:bold;">服务器地址：</label>
@@ -1160,7 +1362,10 @@
             const newRemoveBtn = overlay.querySelector(`.remove-server-btn[data-index="${newIndex}"]`);
             if (newConnectBtn) newConnectBtn.onclick = function() { handleConnect(this); };
             if (newRemoveBtn) newRemoveBtn.onclick = function() { handleRemove(this); };
-        };
+        }
+
+        document.getElementById('add-emby-server-btn').onclick = () => addServerByType('emby');
+        document.getElementById('add-jellyfin-server-btn').onclick = () => addServerByType('jellyfin');
         document.getElementById('save-servers-btn').onclick = () => {
             const newServers = [];
             servers.forEach((_, index) => {
@@ -1189,14 +1394,52 @@
                 jellyfinLastSyncTime: JELLYFIN_LAST_SYNC_TIME,
                 backupTime: new Date().toISOString()
             };
-            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const json = JSON.stringify(config, null, 2);
+            const defaultName = `javdb-emby-backup-${new Date().toISOString().slice(0,10)}.json`;
+
+            // 优先尝试 File System Access API，让用户选择保存路径
+            // Tampermonkey 隔离上下文中 window 不是真顶层 window，必须用 unsafeWindow 访问浏览器原生 API
+            const realWindow = (typeof unsafeWindow !== 'undefined' ? unsafeWindow : window);
+            if (typeof realWindow.showSaveFilePicker === 'function') {
+                let pickerPromise;
+                try {
+                    pickerPromise = realWindow.showSaveFilePicker({
+                        suggestedName: defaultName,
+                        types: [{
+                            description: 'JSON 文件',
+                            accept: { 'application/json': ['.json'] }
+                        }]
+                    });
+                } catch (err) {
+                    console.warn('[JavdbBuddy] showSaveFilePicker 同步调用失败:', err);
+                }
+                if (pickerPromise) {
+                    pickerPromise.then(async handle => {
+                        const writable = await handle.createWritable();
+                        await writable.write(json);
+                        await writable.close();
+                    }).catch(err => {
+                        if (err.name !== 'AbortError') {
+                            console.warn('[JavdbBuddy] showSaveFilePicker 后续失败，fallback 到默认下载:', err);
+                            fallbackDownload(json, defaultName);
+                        }
+                    });
+                    return;
+                }
+            }
+
+            fallbackDownload(json, defaultName);
+        };
+
+        function fallbackDownload(json, defaultName) {
+            const blob = new Blob([json], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `javdb-emby-backup-${new Date().toISOString().slice(0,10)}.json`;
+            a.download = defaultName;
             a.click();
             URL.revokeObjectURL(url);
-        };
+        }
         
         // 恢复配置
         document.getElementById('restore-btn').onclick = () => {
@@ -1230,7 +1473,7 @@
                         JELLYFIN_LAST_SYNC_TIME = config.jellyfinLastSyncTime;
                     }
                     overlay.remove();
-                    showSettingsDialog();
+                    showSettingsDialog('tab-emby');
                 } catch (err) {
                     console.error('配置文件格式错误：', err);
                 }
@@ -1275,34 +1518,34 @@
         document.getElementById('jb-webdav-backup-btn')?.addEventListener('click', async () => {
             const msgEl = document.getElementById('jb-webdav-msg');
             if (msgEl) { msgEl.textContent = '⬆️ 正在备份到 WebDAV...'; msgEl.style.color = '#666'; }
-            const ok = await backupToWebDAV();
+            const result = await backupToWebDAV();
             if (msgEl) {
-                msgEl.textContent = ok ? '✅ 备份成功' : '❌ 备份失败，请检查配置';
-                msgEl.style.color = ok ? '#4CAF50' : '#f44336';
+                msgEl.textContent = result.success ? '✅ ' + result.message : '❌ ' + result.message;
+                msgEl.style.color = result.success ? '#4CAF50' : '#f44336';
             }
-            setTimeout(() => { if (msgEl) msgEl.textContent = ''; }, 3000);
+            setTimeout(() => { if (msgEl) msgEl.textContent = ''; }, 5000);
         });
 
         // WebDAV 恢复
         document.getElementById('jb-webdav-restore-btn')?.addEventListener('click', async () => {
             const msgEl = document.getElementById('jb-webdav-msg');
             if (msgEl) { msgEl.textContent = '⬇️ 正在从 WebDAV 恢复...'; msgEl.style.color = '#666'; }
-            const ok = await restoreFromWebDAV();
+            const result = await restoreFromWebDAV();
             if (msgEl) {
-                msgEl.textContent = ok ? '✅ 恢复成功，即将刷新' : '❌ 恢复失败，请检查配置';
-                msgEl.style.color = ok ? '#4CAF50' : '#f44336';
+                msgEl.textContent = result.success ? '✅ ' + result.message + '，即将刷新' : '❌ ' + result.message;
+                msgEl.style.color = result.success ? '#4CAF50' : '#f44336';
             }
-            if (ok) setTimeout(() => window.location.reload(), 800);
+            if (result.success) setTimeout(() => window.location.reload(), 800);
         });
 
         // WebDAV 测试连接
         document.getElementById('jb-webdav-test-btn')?.addEventListener('click', async () => {
             const msgEl = document.getElementById('jb-webdav-msg');
             if (msgEl) { msgEl.textContent = '🔌 正在测试连接...'; msgEl.style.color = '#666'; }
-            const ok = await testWebDAVConnection();
+            const result = await testWebDAVConnection();
             if (msgEl) {
-                msgEl.textContent = ok ? '✅ 连接成功' : '❌ 连接失败，请检查配置';
-                msgEl.style.color = ok ? '#4CAF50' : '#f44336';
+                msgEl.textContent = result.success ? '✅ ' + result.message : '❌ ' + result.message;
+                msgEl.style.color = result.success ? '#4CAF50' : '#f44336';
             }
         });
 
@@ -1315,7 +1558,7 @@
             const typeLabel = serverType === 'emby' ? 'Emby' : 'Jellyfin';
 
             if (!url || !apiKey) {
-                console.warn('Media Checker: 请填写完整的服务器地址和 API Key');
+                console.warn('JavdbBuddy: 请填写完整的服务器地址和 API Key');
                 return;
             }
 
@@ -1365,7 +1608,7 @@
                 syncFullLibrary(false);
 
                 overlay.remove();
-                showSettingsDialog();
+                showSettingsDialog('tab-emby');
                 initCheck();
             } catch (e) {
                 servers[index].statusMsg = e.toString();
@@ -1387,7 +1630,7 @@
             servers.splice(idx, 1);
             saveServers(servers);
             overlay.remove();
-            showSettingsDialog();
+            showSettingsDialog('tab-emby');
         }
 
         overlay.querySelectorAll('.connect-server-btn').forEach(btn => {
@@ -1411,6 +1654,25 @@
             font-weight: bold;
             vertical-align: middle;
             line-height: 1.5;
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+            min-width: max-content !important;
+            overflow: visible !important;
+        }
+        .emby-status-wrap {
+            display: inline-flex !important;
+            flex-direction: row !important;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+            vertical-align: middle;
+            min-width: fit-content !important;
+            width: auto !important;
+            flex-shrink: 0 !important;
+        }
+        .panel-block .emby-status-wrap {
+            flex-shrink: 0 !important;
+            min-width: fit-content !important;
         }
         .emby-status.exists {
             background-color: #4CAF50;
@@ -1433,7 +1695,8 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .movie-list .item { position: relative; }
+        .grid-item, .movie-list .item { position: relative; }
+        .grid-item .tags .emby-status,
         .movie-list .item .tags .emby-status {
             margin-right: 5px;
             margin-bottom: 5px;
@@ -2359,10 +2622,10 @@
                 // 先检测错误
                 const errorMsg = detectResponseError(response);
                 if (errorMsg) {
-                    // 404 时尝试回退到 JHS API 获取短评
-                    if (response.status === 404 && typeof jhsApi !== 'undefined') {
+                    // 404 时尝试回退到 外部API 获取短评
+                    if (response.status === 404 && typeof jbApi !== 'undefined') {
                         const movieId = baseUrl.split('/').pop();
-                        jhsApi.getReviews(movieId, 1, 20).then(dataList => {
+                        jbApi.getReviews(movieId, 1, 20).then(dataList => {
                             if (!isModalVisible()) return;
                             if (!dataList || dataList.length === 0) {
                                 document.getElementById('emby-modal-body').innerHTML = '<div class="preview-loading">暂无短评</div>';
@@ -2371,7 +2634,7 @@
                             let floorIndex = 1;
                             const panel = document.getElementById('emby-modal-body');
                             panel.innerHTML = '';
-                            jhsDisplayReviews(dataList, panel, () => floorIndex++);
+                            jbDisplayReviews(dataList, panel, () => floorIndex++);
                         }).catch(() => {
                             if (!isModalVisible()) return;
                             document.getElementById('emby-modal-body').innerHTML = `<div class="preview-loading" style="color:#e74c3c;">⚠️ ${errorMsg}</div>`;
@@ -2850,11 +3113,11 @@
 
                     if (response.status !== 200) {
                         if (loadingDiv) {
-                            loadingDiv.innerHTML = `<div style="text-align: center; padding: 20px; color: #e74c3c;">获取失败 (HTTP ${response.status})</div>`;
+                            loadingDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">暂无数据</div>';
                         }
                         if (countSpan) {
-                            countSpan.textContent = '错误';
-                            countSpan.style.background = '#e74c3c';
+                            countSpan.textContent = '0';
+                            countSpan.style.background = '#999';
                         }
                         return;
                     }
@@ -2973,26 +3236,26 @@
                 } catch (error) {
                     console.error('加载 JAVBUS 磁力链失败:', error);
                     if (loadingDiv) {
-                        loadingDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #e74c3c;">解析失败</div>';
+                        loadingDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">暂无数据</div>';
                     }
                 }
             },
             onerror: function() {
                 if (loadingDiv) {
-                    loadingDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #e74c3c;">无法连接到 JAVBUS</div>';
+                    loadingDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">暂无数据</div>';
                 }
                 if (countSpan) {
-                    countSpan.textContent = '错误';
-                    countSpan.style.background = '#e74c3c';
+                    countSpan.textContent = '0';
+                    countSpan.style.background = '#999';
                 }
             },
             ontimeout: function() {
                 if (loadingDiv) {
-                    loadingDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #e74c3c;">请求超时</div>';
+                    loadingDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">暂无数据</div>';
                 }
                 if (countSpan) {
-                    countSpan.textContent = '超时';
-                    countSpan.style.background = '#e74c3c';
+                    countSpan.textContent = '0';
+                    countSpan.style.background = '#999';
                 }
             }
         });
@@ -3055,7 +3318,7 @@
         } catch (error) {
             console.error('回退解析 JAVBUS 失败:', error);
             if (loadingDiv) {
-                loadingDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #e74c3c;">解析失败</div>';
+                loadingDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">暂无数据</div>';
             }
         }
     }
@@ -3316,17 +3579,26 @@
         showModal(`${videoCode} - 磁力链接`, html);
     }
     
+    // 列表页搜索站点配置
+    const SEARCH_SITES = [
+        { name: '98堂', url: 'https://sehuatang.net/search.php?mod=forum&srchtxt={code}', format: 'query' },
+        { name: 'BTSOW', url: 'https://btsow.pics/search/{code}', format: 'path' },
+        { name: 'JAVLib', url: 'https://www.javlibrary.com/cn/vl_searchbyid.php?keyword={code}', format: 'query' },
+        { name: 'JAVBUS', url: 'https://javbus.com/{code}', format: 'path' },
+        { name: '谷歌搜索', url: 'https://www.google.com/search?q={code}', format: 'query' }
+    ];
+
     // 为列表页添加搜索按钮
     function addListPageSearchButtons(container, videoCode) {
         if (!videoCode) return;
-        
+
         // 防止重复添加
         if (container.querySelector('.list-search-panel')) return;
-        
+
         const searchPanel = document.createElement('div');
         searchPanel.className = 'list-search-panel';
         searchPanel.style.cssText = 'display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; width: 100%;';
-        
+
         const buttonColors = [
             { bg: '#dc3545', hover: '#c82333' },
             { bg: '#007bff', hover: '#0056b3' },
@@ -3334,13 +3606,13 @@
             { bg: '#ffc107', hover: '#e0a800', text: '#000' },
             { bg: '#17a2b8', hover: '#138496' }
         ];
-        
+
         SEARCH_SITES.forEach((site, index) => {
             const btn = document.createElement('button');
             btn.textContent = site.name;
             const color = buttonColors[index] || { bg: '#6c757d', hover: '#5a6268' };
             btn.style.cssText = `padding: 2px 6px; background-color: ${color.bg}; color: ${color.text || 'white'}; border: none; border-radius: 3px; cursor: pointer; font-size: clamp(9px, 1.1vw, 11px); font-weight: 500; transition: all 0.2s; white-space: nowrap;`;
-            
+
             btn.addEventListener('mouseenter', function() { this.style.backgroundColor = color.hover; });
             btn.addEventListener('mouseleave', function() { this.style.backgroundColor = color.bg; });
             btn.addEventListener('click', (e) => {
@@ -3351,7 +3623,7 @@
             });
             searchPanel.appendChild(btn);
         });
-        
+
         container.appendChild(searchPanel);
     }
 
@@ -3754,10 +4026,14 @@
 
         // 添加提示文字（仅详情页）
         if (window.location.pathname.startsWith('/v/')) {
-            const hint = document.createElement('div');
-            hint.style.cssText = 'font-size: 11px; color: #999; margin-top: 3px; line-height: 1.4;';
-            hint.textContent = `ℹ️ 点击标签可直接跳转到 ${serverType === 'emby' ? 'Emby' : 'Jellyfin'} 服务器中的媒体页面`;
-            statusDiv.parentElement.appendChild(hint);
+            const wrap = statusDiv.parentElement;
+            if (wrap && !wrap.querySelector('.emby-status-hint')) {
+                const hint = document.createElement('span');
+                hint.className = 'emby-status-hint';
+                hint.style.cssText = 'font-size: 11px; color: #999; margin-left: 4px; line-height: 1.4; white-space: nowrap;';
+                hint.textContent = `ℹ️ 点击标签可直接跳转到 ${serverType === 'emby' ? 'Emby' : 'Jellyfin'} 服务器中的媒体页面`;
+                wrap.appendChild(hint);
+            }
         }
     }
 
@@ -3765,15 +4041,21 @@
         const label = serverType === 'emby' ? 'Emby未入库' : 'Jellyfin未入库';
         statusDiv.className = 'emby-status not-exists';
         statusDiv.textContent = label;
-        statusDiv.title = '未在服务器中找到';
-        statusDiv.onclick = null;
+        statusDiv.title = '未在服务器中找到，点击打开设置';
+        statusDiv.style.cursor = 'pointer';
+        statusDiv.onclick = (e) => {
+            e.preventDefault(); e.stopPropagation();
+            showSettingsDialog('tab-emby');
+        };
     }
 
     // 新增：渲染状态消息（如未添加服务器、连接失败）
     function renderStatusMessage(statusDiv, message, type, serverType = 'emby') {
+        const prefix = serverType === 'emby' ? 'Emby' : 'Jellyfin';
+        const label = message.startsWith(prefix) || message.startsWith('点击') ? message : prefix + message;
         statusDiv.className = `emby-status ${type}`;
-        statusDiv.textContent = message;
-        statusDiv.title = message;
+        statusDiv.textContent = label;
+        statusDiv.title = label;
         statusDiv.style.cursor = 'pointer';
         statusDiv.onclick = (e) => {
             e.preventDefault(); e.stopPropagation();
@@ -3862,65 +4144,12 @@
         });
     }
 
+    // 标记已处理的元素，避免重复处理（使用无连字符名称，避免 DOMStringMap 在某些浏览器中抛 SyntaxError）
+    const PROCESSED_MARK = 'jb_processed';
+
     function initCheck() {
         if (document.hidden) return; // 页面隐藏时不执行
-        console.log('EMBY Checker: 执行页面扫描');
-        
-        // 详情页
-        if (window.location.pathname.startsWith('/v/')) {
-            console.log('EMBY Checker: 检测到详情页，开始查找番号元素');
-            
-            // 多种方式查找番号元素
-            const blocks = document.querySelectorAll('.video-meta-panel .panel-block, .movie-panel-info .panel-block, .panel-block');
-            console.log(`EMBY Checker: 找到 ${blocks.length} 个 panel-block`);
-            
-            let foundCode = false;
-            for (let block of blocks) {
-                const strongEl = block.querySelector('strong');
-                console.log('EMBY Checker: 检查 panel-block, strong 内容:', strongEl?.textContent);
-                
-                if (strongEl && (strongEl.textContent.includes('番號') || strongEl.textContent.includes('番号'))) {
-                    const val = block.querySelector('.value');
-                    console.log('EMBY Checker: 找到番号块，value:', val?.textContent);
-                    
-                    if (val) {
-                        foundCode = true;
-                        const videoCode = val.textContent.trim();
-
-                        // 清理所有旧指示器
-                        block.querySelectorAll('.emby-status').forEach(el => el.remove());
-                        block.querySelectorAll('div').forEach(el => {
-                            if (el.textContent && el.textContent.includes('点击标签可直接跳转到')) el.remove();
-                        });
-
-                        const copyBtn = block.querySelector('.copy-to-clipboard');
-
-                        // 添加 Emby 标签
-                        const embyWrap = document.createElement('span');
-                        embyWrap.style.marginLeft = '4px';
-                        if (copyBtn) copyBtn.after(embyWrap);
-                        else block.appendChild(embyWrap);
-                        addStatusIndicator(embyWrap, videoCode, null, null, 'emby');
-
-                        // 添加 Jellyfin 标签
-                        const jellyfinWrap = document.createElement('span');
-                        jellyfinWrap.style.marginLeft = '4px';
-                        embyWrap.after(jellyfinWrap);
-                        addStatusIndicator(jellyfinWrap, videoCode, null, null, 'jellyfin');
-
-                        break;
-                    }
-                }
-            }
-            
-            if (!foundCode) {
-                console.log('EMBY Checker: 未能通过 panel-block 找到番号，尝试其他方法');
-            }
-        }
-
-        // 列表页
-        const listItems = document.querySelectorAll('.movie-list .item');
-        console.log('EMBY Checker: 找到列表项数量:', listItems.length);
+        console.log('JavdbBuddy: 执行页面扫描');
 
         // 应用列表页链接 target 设置
         applyListPageLinkTarget();
@@ -3931,15 +4160,128 @@
         // 初始化悬浮封面放大
         initHoverZoom();
 
+        // 详情页
+        if (window.location.pathname.startsWith('/v/')) {
+            console.log('JavdbBuddy: 检测到详情页，开始查找番号元素');
+
+            // 多种方式查找番号元素
+            const blocks = document.querySelectorAll('.video-meta-panel .panel-block, .movie-panel-info .panel-block, .panel-block');
+            console.log(`JavdbBuddy: 找到 ${blocks.length} 个 panel-block`);
+
+            let foundCode = false;
+            for (let block of blocks) {
+                // 跳过已处理的块
+                if (block.dataset[PROCESSED_MARK]) continue;
+
+                const strongEl = block.querySelector('strong');
+                console.log('JavdbBuddy: 检查 panel-block, strong 内容:', strongEl?.textContent);
+
+                if (strongEl && (strongEl.textContent.includes('番號') || strongEl.textContent.includes('番号'))) {
+                    const val = block.querySelector('.value');
+                    console.log('JavdbBuddy: 找到番号块，value:', val?.textContent);
+
+                    if (val) {
+                        foundCode = true;
+                        const videoCode = val.textContent.trim().replace(/[^\w\-]/g, '');
+
+                        // 清理已存在的容器和提示（防止重复添加）
+                        block.querySelectorAll('.emby-status-wrap').forEach(el => el.remove());
+                        block.querySelectorAll('.emby-status-hint').forEach(el => el.remove());
+
+                        const copyBtn = block.querySelector('.copy-to-clipboard');
+
+                        // 创建一个 inline-flex 容器来水平排列两个标签，避免竖排
+                        const statusWrap = document.createElement('span');
+                        statusWrap.className = 'emby-status-wrap';
+                        statusWrap.style.cssText = 'display: inline-flex !important; flex-direction: row !important; gap: 4px; align-items: center; margin-left: 4px; flex-wrap: wrap; vertical-align: middle; min-width: fit-content; flex-shrink: 0 !important;';
+                        if (copyBtn) copyBtn.after(statusWrap);
+                        else {
+                            const val = block.querySelector('.value');
+                            if (val) val.after(statusWrap);
+                            else block.appendChild(statusWrap);
+                        }
+                        addStatusIndicator(statusWrap, videoCode, null, null, 'emby');
+                        addStatusIndicator(statusWrap, videoCode, null, null, 'jellyfin');
+
+                        // 为详情页番号块添加5个网站搜索按钮
+                        if (!block.querySelector('.detail-search-panel')) {
+                            const detailSearchPanel = document.createElement('div');
+                            detailSearchPanel.className = 'detail-search-panel';
+                            detailSearchPanel.style.cssText = 'display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;';
+                            const dColors = [
+                                { bg: '#dc3545', hover: '#c82333', text: '#fff' },
+                                { bg: '#007bff', hover: '#0056b3', text: '#fff' },
+                                { bg: '#28a745', hover: '#218838', text: '#fff' },
+                                { bg: '#ffc107', hover: '#e0a800', text: '#000' },
+                                { bg: '#17a2b8', hover: '#138496', text: '#fff' }
+                            ];
+                            SEARCH_SITES.forEach((site, idx) => {
+                                const btn = document.createElement('button');
+                                btn.textContent = site.name;
+                                const c = dColors[idx];
+                                btn.style.cssText = `padding: 3px 8px; background-color: ${c.bg}; color: ${c.text}; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; white-space: nowrap;`;
+                                btn.addEventListener('mouseenter', function() { this.style.backgroundColor = c.hover; });
+                                btn.addEventListener('mouseleave', function() { this.style.backgroundColor = c.bg; });
+                                btn.addEventListener('click', (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const url = site.format === 'path' ? site.url.replace('{code}', videoCode) : site.url.replace('{code}', encodeURIComponent(videoCode));
+                                    window.open(url, '_blank');
+                                });
+                                detailSearchPanel.appendChild(btn);
+                            });
+                            block.after(detailSearchPanel);
+                        }
+
+                        // 标记为已处理
+                        block.dataset[PROCESSED_MARK] = '1';
+
+                        break;
+                    }
+                }
+            }
+
+            if (!foundCode) {
+                console.log('JavdbBuddy: 未能通过 panel-block 找到番号，尝试其他方法');
+            }
+        }
+
+        // 列表页 - 只处理未处理过的项目（兼容 .grid-item 和 .movie-list .item）
+        const listItems = document.querySelectorAll('.grid-item:not([data-' + PROCESSED_MARK + ']), .movie-list .item:not([data-' + PROCESSED_MARK + '])');
+        console.log('JavdbBuddy: 找到新列表项数量:', listItems.length);
+
         listItems.forEach((item, index) => {
-            console.log(`EMBY Checker: 处理第 ${index + 1} 个列表项`);
+            console.log(`JavdbBuddy: 处理第 ${index + 1} 个新列表项`);
             const titleDiv = item.querySelector('.video-title');
             const tags = item.querySelector('.tags');
+            // 尝试多个选择器找到日期元素（JavDB 新版用 .video-date，旧版用 .meta 或 .date）
+            const dateEl = item.querySelector('.video-date') || item.querySelector('.date') || item.querySelector('.meta');
             if (titleDiv && tags) {
                 const code = extractCodeFromTitle(titleDiv.textContent) || titleDiv.textContent.trim().split(/\s+/)[0];
-                if (!code || code.length <= 2) return;
-                
-                // 1. 创建或获取主工具容器（防止换行）
+                if (!code || code.length <= 2) {
+                    item.dataset[PROCESSED_MARK] = '1'; // 标记为已处理（即使无有效code）
+                    return;
+                }
+
+                // 1. 入库状态标签：插入到日期元素后面，紧跟日期显示在同一行
+                if (dateEl) {
+                    // 如果日期元素是块级，改成 inline-block 以便与标签同行
+                    const dateDisplay = window.getComputedStyle(dateEl).display;
+                    if (dateDisplay === 'block' || dateDisplay === 'flex') {
+                        dateEl.style.display = 'inline-block';
+                    }
+                    let statusContainer = dateEl.parentElement.querySelector('.emby-status-inline');
+                    if (!statusContainer) {
+                        statusContainer = document.createElement('span');
+                        statusContainer.className = 'emby-status-inline';
+                        statusContainer.style.cssText = 'display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: middle; flex-wrap: wrap; align-items: center;';
+                        dateEl.after(statusContainer);
+                    }
+                    addStatusIndicator(statusContainer, code, item, null, 'emby');
+                    addStatusIndicator(statusContainer, code, item, null, 'jellyfin');
+                }
+
+                // 2. 其他工具按钮容器
                 let toolsContainer = item.querySelector('.emby-tools-container');
                 if (!toolsContainer) {
                     toolsContainer = document.createElement('div');
@@ -3947,19 +4289,6 @@
                     toolsContainer.style.cssText = 'margin-top: 5px; width: 100%; display: block;';
                     tags.after(toolsContainer);
                 }
-
-                // 2. 第一行：Emby 和 Jellyfin 入库状态
-                let statusRow = toolsContainer.querySelector('.emby-status-row');
-                if (!statusRow) {
-                    statusRow = document.createElement('div');
-                    statusRow.className = 'emby-status-row';
-                    statusRow.style.cssText = 'display: flex; flex-wrap: wrap; align-items: center; gap: 3px; width: 100%; overflow: visible;';
-                    toolsContainer.insertBefore(statusRow, toolsContainer.firstChild);
-                } else {
-                    statusRow.querySelectorAll('.emby-status').forEach(el => el.remove());
-                }
-                addStatusIndicator(statusRow, code, item, null, 'emby');
-                addStatusIndicator(statusRow, code, item, null, 'jellyfin');
 
                 // 3. 第二行：短评、预览、磁力
                 let toolsRow = toolsContainer.querySelector('.emby-tools-row');
@@ -3974,12 +4303,15 @@
                     addMagnetToggle(toolsRow, item, code);
                 }
 
-                // 3. 第二行：搜索按钮（另起一行）
+                // 4. 搜索按钮（另起一行）
                 if (!toolsContainer.querySelector('.list-search-panel')) {
                     addListPageSearchButtons(toolsContainer, code);
                 }
+
+                // 标记为已处理
+                item.dataset[PROCESSED_MARK] = '1';
             } else {
-                console.log(`EMBY Checker: 第 ${index + 1} 项缺少必要元素`, { titleDiv: !!titleDiv, tags: !!tags });
+                console.log(`JavdbBuddy: 第 ${index + 1} 项缺少必要元素`, { titleDiv: !!titleDiv, tags: !!tags });
             }
         });
     }
@@ -3987,1253 +4319,1009 @@
     // 启动
     const start = () => {
         try {
-            console.log('EMBY Checker: ========== 脚本启动 ==========');
-            console.log('EMBY Checker: 当前URL:', window.location.href);
-            console.log('EMBY Checker: 当前路径:', window.location.pathname);
+            console.log('JavdbBuddy: ========== 脚本启动 ==========');
+            console.log('JavdbBuddy: 当前URL:', window.location.href);
+            console.log('JavdbBuddy: 当前路径:', window.location.pathname);
             
             addBackToTopFloatButton(); // 添加返回顶部/底部浮动按钮
             initCheck();
             
-            // 延迟执行多站点搜索按钮，确保页面元素已加载
-            console.log('EMBY Checker: 准备添加搜索按钮...');
+            // 延迟执行在线观看面板，确保页面元素已加载
+            console.log('JavdbBuddy: 准备添加在线观看面板...');
             // 立即执行一次
             setTimeout(() => {
-                console.log('EMBY Checker: 立即尝试添加搜索按钮');
-                addMultiSiteSearchButtons();
+                console.log('JavdbBuddy: 立即尝试添加在线观看面板');
                 addOnlineWatchPanel();
             }, 0);
             setTimeout(() => {
-                console.log('EMBY Checker: 300ms - 尝试添加搜索按钮');
-                addMultiSiteSearchButtons();
+                console.log('JavdbBuddy: 300ms - 尝试添加在线观看面板');
                 addOnlineWatchPanel();
             }, 300);
             setTimeout(() => {
-                console.log('EMBY Checker: 1000ms - 尝试添加搜索按钮');
-                addMultiSiteSearchButtons();
+                console.log('JavdbBuddy: 1000ms - 尝试添加在线观看面板');
                 addOnlineWatchPanel();
             }, 1000);
         } catch(e) {
-            console.error('EMBY Checker: 启动失败', e);
+            console.error('JavdbBuddy: 启动失败', e);
         }
     };
 
-    // ========== [新增] 多站点搜索功能 ==========
-    const SEARCH_SITES = [
-        { name: '98堂', url: 'https://sehuatang.net/search.php?mod=forum&srchtxt={code}', format: 'query' },
-        { name: 'BTSOW', url: 'https://btsow.pics/search/{code}', format: 'path' },
-        { name: 'JAVLib', url: 'https://www.javlibrary.com/cn/vl_searchbyid.php?keyword={code}', format: 'query' },
-        { name: 'JAVBUS', url: 'https://www.javbus.com/{code}', format: 'path' },
-        { name: '谷歌搜索', url: 'https://www.google.com/search?q={code}', format: 'query' }
-    ];
-
-    function addMultiSiteSearchButtons() {
-        try {
-            // 只在详情页显示
-            if (!window.location.pathname.startsWith('/v/')) {
-                console.log('EMBY Checker: 不是详情页，跳过添加搜索按钮');
-                return;
-            }
-            
-            // 检测是否被限流（页面显示 "Please take a rest"）
-            if (document.body.textContent.includes('Please take a rest')) {
-                console.log('EMBY Checker: 检测到限流提示，不添加搜索按钮');
-                return;
-            }
-            
-            // 检测页面是否有有效内容
-            const hasContent = document.querySelector('.video-meta-panel') || 
-                              document.querySelector('.movie-panel-info') ||
-                              document.querySelector('.panel-block');
-            if (!hasContent) {
-                console.log('EMBY Checker: 页面没有有效内容，不添加搜索按钮');
-                return;
-            }
-            
-            console.log('EMBY Checker: 开始添加多站点搜索按钮...');
-    
-            // 防止重复添加（但如果是固定定位的旧按钮，则删除重建）
-            const existingPanel = document.querySelector('.javdb-search-panel');
-            if (existingPanel) {
-                // 检查是否是固定定位的按钮（旧版本）
-                const isFixed = existingPanel.parentElement && 
-                               existingPanel.parentElement.style.position === 'fixed';
-                
-                if (isFixed) {
-                    console.log('EMBY Checker: 删除旧的固定定位按钮，准备重新插入');
-                    existingPanel.parentElement.remove();
-                } else {
-                    console.log('EMBY Checker: 搜索按钮已存在');
-                    return;
-                }
-            }
-    
-            // 多种方式查找番号
-            let videoCode = '';
-            let codeElement = null;
-    
-            // 方法1：通过 TreeWalker 查找"番号："文本
-            try {
-                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-                let node;
-                while (node = walker.nextNode()) {
-                    const text = node.textContent.trim();
-                    // 核心改进：支持中英文两种冒号 [:：]，并放宽番号匹配范围
-                            const match = text.match(/番[号號][:：]\s*([A-Z0-9\-]+)/i);
-                    if (match) {
-                        videoCode = match[1];
-                        codeElement = node.parentElement;
-                        break;
-                    }
-                }
-            } catch(e) {
-                console.warn('EMBY Checker: TreeWalker 查找失败', e);
-            }
-    
-            // 方法2：遍历常见元素查找
-            if (!videoCode) {
-                try {
-                    const selectors = ['p', 'div', 'span', 'li', 'td', 'strong', 'b', 'label'];
-                    for (let selector of selectors) {
-                        const elements = document.querySelectorAll(selector);
-                        for (let el of elements) {
-                            const text = el.textContent || '';
-                            // 核心改进：支持中英文两种冒号 [:：]，并放宽番号匹配范围
-                            const match = text.match(/番[号號][:：]\s*([A-Z0-9\-]+)/i);
-                            if (match && text.length < 300) {
-                                videoCode = match[1];
-                                codeElement = el;
-                                break;
-                            }
-                        }
-                        if (videoCode) break;
-                    }
-                } catch(e) {
-                    console.warn('EMBY Checker: 元素遍历查找失败', e);
-                }
-            }
-    
-            // 方法3：从标题提取
-            if (!videoCode) {
-                try {
-                    const titleMatch = document.title.match(/([A-Z]{2,10}-?\d+)/i);
-                    if (titleMatch) videoCode = titleMatch[1];
-                } catch(e) {
-                    console.warn('EMBY Checker: 标题提取失败', e);
-                }
-            }
-    
-            // 方法4：从 URL 提取
-            if (!videoCode) {
-                try {
-                    const urlMatch = window.location.href.match(/\/([A-Z0-9\-]+)$/i);
-                    if (urlMatch) videoCode = urlMatch[1];
-                } catch(e) {
-                    console.warn('EMBY Checker: URL提取失败', e);
-                }
-            }
-    
-            if (!videoCode) {
-                console.log('EMBY Checker: 未找到番号，尝试使用页面 ID 作为默认值');
-                // 如果实在找不到番号，就使用 URL 的最后部分作为番号
-                const pathMatch = window.location.pathname.match(/\/v\/([^\/]+)$/);
-                if (pathMatch) {
-                    videoCode = pathMatch[1];
-                    console.log('EMBY Checker: 使用页面 ID 作为番号:', videoCode);
-                } else {
-                    console.log('EMBY Checker: 无法提取任何标识符，放弃添加按钮');
-                    return;
-                }
-            }
-    
-            videoCode = videoCode.replace(/[^\w\-]/g, '').trim();
-            console.log('EMBY Checker: 找到番号:', videoCode);
-            
-            // 如果通过标题/URL提取到了番号，但codeElement为空，则使用更激进的策略重新在页面上查找
-            if (!codeElement && videoCode) {
-                console.log('EMBY Checker: 正在执行深度搜索策略...');
-                try {
-                    // 策略：寻找包含"番号"关键字且文本中含有实际番号的最小容器
-                    const allLabels = Array.from(document.querySelectorAll('strong, b, span, label, td'));
-                    for (let el of allLabels) {
-                        const text = el.textContent;
-                        if ((text.includes('番号') || text.includes('番號')) && text.includes(videoCode)) {
-                            codeElement = el;
-                            console.log('EMBY Checker: 深度搜索成功找到番号所在元素');
-                            break;
-                        }
-                    }
-                    
-                    // 如果还是没找到，尝试找"番号"标签的兄弟节点
-                    if (!codeElement) {
-                        const labels = allLabels.filter(el => 
-                            (el.textContent === '番号:' || el.textContent === '番號:' || 
-                             el.textContent === '番号：' || el.textContent === '番號：')
-                        );
-                        if (labels.length > 0) {
-                            codeElement = labels[0].parentElement;
-                            console.log('EMBY Checker: 通过标签关联找到容器');
-                        }
-                    }
-                } catch(e) {
-                    console.warn('EMBY Checker: 深度搜索失败', e);
-                }
-            }
-
-        // 创建按钮容器
-        const searchPanel = document.createElement('div');
-        searchPanel.className = 'javdb-search-panel';
-        // 参考正确代码：使用 inline-flex 和 margin-left
-        searchPanel.style.cssText = 'margin-left: 10px; display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; flex-wrap: wrap;';
-
-        const buttonColors = [
-            { bg: '#dc3545', hover: '#c82333' },
-            { bg: '#007bff', hover: '#0056b3' },
-            { bg: '#28a745', hover: '#218838' },
-            { bg: '#ffc107', hover: '#e0a800', text: '#000' },
-            { bg: '#17a2b8', hover: '#138496' }
-        ];
-
-        SEARCH_SITES.forEach((site, index) => {
-            const btn = document.createElement('button');
-            btn.textContent = site.name;
-            const color = buttonColors[index] || { bg: '#6c757d', hover: '#5a6268' };
-            btn.style.cssText = `padding: 5px 12px; background-color: ${color.bg}; color: ${color.text || 'white'}; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.1);`;
-            
-            btn.addEventListener('mouseenter', function() { this.style.backgroundColor = color.hover; this.style.transform = 'translateY(-1px)'; });
-            btn.addEventListener('mouseleave', function() { this.style.backgroundColor = color.bg; this.style.transform = 'translateY(0)'; });
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const url = site.format === 'path' ? site.url.replace('{code}', videoCode) : site.url.replace('{code}', encodeURIComponent(videoCode));
-                console.log('JAVBUS按钮点击:', site.name, '视频代码:', videoCode, 'URL:', url);
-                window.open(url, '_blank');
-            });
-            searchPanel.appendChild(btn);
-        });
-
-        // 插入按钮（参考正确代码逻辑：插入到番号元素的后面）
-        let inserted = false;
-        
-        if (codeElement && codeElement.parentNode) {
-            try {
-                // 正确代码逻辑：直接插入到番号所在元素的后面（同级）
-                codeElement.parentNode.insertBefore(searchPanel, codeElement.nextSibling);
-                inserted = true;
-                console.log('EMBY Checker: 按钮已成功插入到番号元素后面');
-            } catch (e) {
-                console.error('EMBY Checker: 插入失败', e);
-            }
-        }
-
-        // 如果插入失败，尝试插入到详情面板顶部
-        if (!inserted) {
-            console.log('EMBY Checker: 未找到番号元素，尝试插入到面板顶部');
-            try {
-                // 查找 JAVDB 详情页的主信息面板（使用更广泛的选择器）
-                const mainPanel = document.querySelector('.video-meta-panel') || 
-                                 document.querySelector('.movie-panel-info') ||
-                                 document.querySelector('.column.is-two-thirds') ||
-                                 document.querySelector('.video-detail') ||
-                                 document.querySelector('.container .columns .column') ||
-                                 document.querySelector('main .container');
-                
-                if (mainPanel) {
-                    const container = document.createElement('div');
-                    container.style.cssText = 'margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;';
-                    container.appendChild(searchPanel);
-                    mainPanel.insertBefore(container, mainPanel.firstChild);
-                    inserted = true;
-                    console.log('EMBY Checker: 按钮已插入到详情面板顶部');
-                }
-            } catch (e) {
-                console.error('EMBY Checker: 插入到面板失败', e);
-            }
-        }
-        
-        // 最终兜底：如果所有方法都失败，强制显示在右上角
-        if (!inserted) {
-            console.log('EMBY Checker: 所有插入方法失败，使用固定定位强制显示');
-            try {
-                const container = document.createElement('div');
-                container.className = 'javdb-search-fixed';
-                container.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 99999; background: white; padding: 12px; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); max-width: 300px;';
-                
-                // 添加拖动功能
-                const header = document.createElement('div');
-                header.textContent = '🔍 搜索工具';
-                header.style.cssText = 'font-weight: bold; margin-bottom: 8px; cursor: move; color: #333; font-size: 13px; border-bottom: 1px solid #eee; padding-bottom: 5px;';
-                container.appendChild(header);
-                container.appendChild(searchPanel);
-                
-                document.body.appendChild(container);
-                inserted = true;
-                console.log('EMBY Checker: 按钮已强制固定显示在右上角');
-            } catch (e) {
-                console.error('EMBY Checker: 强制固定显示也失败', e);
-            }
-        }
-    } catch(e) {
-        console.error('EMBY Checker: 添加搜索按钮失败', e);
-    }
-}
     // ========== 多网站搜索功能（直接移植自 JAV 添加跳转在线观看 脚本） ==========
 
     // 注入 CSS（原脚本样式，原样照搬）
-    (o=>{if(typeof GM_addStyle=="function"){GM_addStyle(o);return}const e=document.createElement("style");e.textContent=o,document.head.append(e)})(' .jop-list{box-sizing:border-box;display:flex;flex-wrap:wrap;justify-content:flex-start;gap:10px;width:100%;height:100%;z-index:1;transition:right .2s ease-in-out;color:#000}.jop-button,.jop-button_def{position:relative;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:3px 10px;border-radius:4px;font-weight:500;font-size:14px;border:1px solid #dcdfe6;color:#606266;cursor:pointer}.jop-button_def{margin:10px 0;width:100px}.jop-button:visited{color:#606266}.jop-button:hover{text-decoration:none;color:#409eff;border:1px solid #c6e2ff;background-color:#ecf5ff}.jop-button_label{position:absolute;font-size:10px;padding:4px;border-radius:4px;top:-13px;right:-10px;line-height:.75;color:#67c23a;border:1px solid #e1f3d8;background:#fff}.jop-button_green{color:#fff!important;background-color:#67c23a}.jop-button_green:hover{color:#fff!important;background-color:#95d475}.jop-button_red{color:#fff!important;background-color:#f56c6c}.jop-button_red:hover{color:#fff!important;background-color:#f89898}.jop-loading{display:inline-block;width:14px;height:14px;margin-right:10px;border:2px dashed #dcdfe6;border-top-color:transparent;border-radius:100%;animation:btnLoading infinite 1s linear}@keyframes btnLoading{0%{transform:rotate(0)}to{transform:rotate(360deg)}}.jop-tag{padding:3px 6px;color:#409eff!important;background:#ecf5ff;border:1px solid #d9ecff;border-radius:4px}.jop-setting{margin-top:20px}.jop-setting-list{display:flex;flex-wrap:wrap}.jop-setting-title{margin:10px 0 5px;font-weight:700}.jop-setting-item{display:flex;height:20px;align-items:center;margin-right:15px;-webkit-user-select:none;user-select:none;cursor:pointer}.db-panel .movie-panel-info div.panel-block{padding:5.5px 12px}.db-panel .jop-app{padding:15px 12px}.lib-panel .jop-app{padding:20px 30px;margin-top:10px}input[type=checkbox],input[type=radio]{margin:0 0 0 5px;cursor:pointer}.jop-tooltip-container{position:relative;display:inline-block}.jop-tooltip{position:absolute;bottom:100%;left:50%;transform:translate(-50%);background-color:#333;color:#fff;padding:5px 10px;border-radius:4px;font-size:12px;white-space:nowrap;z-index:1000}.jop-setting-label{cursor:pointer}.jop-checkbox{display:inline-flex;align-items:center;cursor:pointer;margin-right:15px;-webkit-user-select:none;user-select:none}.jop-checkbox-input{position:absolute;opacity:0;cursor:pointer}.jop-checkbox-custom{position:relative;display:inline-block;width:16px;height:16px;background-color:#fff;border:1px solid #dcdfe6;border-radius:2px;transition:all .3s}.jop-checkbox-input:checked+.jop-checkbox-custom{background-color:#409eff;border-color:#409eff}.jop-checkbox-input:checked+.jop-checkbox-custom:after{content:"";position:absolute;top:1px;left:4px;width:5px;height:10px;border:solid white;border-width:0 2px 2px 0;transform:rotate(45deg)}.jop-checkbox-label{margin-left:3px;font-size:14px;color:#606266}.jop-checkbox:hover .jop-checkbox-custom{border-color:#409eff} ');
+ 
 
     function addOnlineWatchPanel() {
         if (!window.location.pathname.startsWith('/v/')) return;
         if (document.querySelector('.jop-app')) return;
 
-        (function (preact) {
-            'use strict';
-
-            var f$1 = 0;
-            function u$1(e2, t2, n, o2, i2, u2) {
-                t2 || (t2 = {});
-                var a2, c2, p2 = t2;
-                if ("ref" in p2) for (c2 in p2 = {}, t2) "ref" == c2 ? a2 = t2[c2] : p2[c2] = t2[c2];
-                var l2 = { type: e2, props: p2, key: n, ref: a2, __k: null, __: null, __b: 0, __e: null, __c: null, constructor: void 0, __v: --f$1, __i: -1, __u: 0, __source: i2, __self: u2 };
-                if ("function" == typeof e2 && (a2 = e2.defaultProps)) for (c2 in a2) void 0 === p2[c2] && (p2[c2] = a2[c2]);
-                return preact.options.vnode && preact.options.vnode(l2), l2;
-            }
-            const libSites = [
-                {
-                    name: "javdb",
-                    enable: true,
-                    identifier: "a[href*='javdb']",
-                    querys: {
-                        panelQueryStr: ".video-meta-panel>.columns.is-desktop .panel.movie-panel-info",
-                        codeQueryStr: `[data-clipboard-text]`
-                    },
-                    method() {
-                        const columnVideoCover = document.querySelector(".column-video-cover");
-                        if (columnVideoCover) {
-                            columnVideoCover.style.width = "60%";
-                        }
-                        const panel = document.querySelector(
-                            ".video-meta-panel>.columns.is-desktop>.column:not(.column-video-cover)"
-                        );
-                        panel == null ? void 0 : panel.classList.add("db-panel");
-                    }
-                },
-                {
-                    name: "javbus",
-                    enable: true,
-                    identifier: "a[href*='javbus']",
-                    querys: {
-                        panelQueryStr: ".movie>div.info",
-                        codeQueryStr: `span[style="color:#CC0000;"]`
-                    },
-                    method() {
-                    }
-                },
-                {
-                    name: "javlib",
-                    enable: true,
-                    identifier: "img[src*='logo-top']",
-                    querys: {
-                        panelQueryStr: "#video_jacket_info #video_info",
-                        codeQueryStr: `#video_id td.text`
-                    },
-                    method() {
-                        const panel = document.querySelector("#video_info");
-                        panel == null ? void 0 : panel.classList.add("lib-panel");
-                    }
-                }
-            ];
-            var _GM_getValue = /* @__PURE__ */ (() => typeof GM_getValue != "undefined" ? GM_getValue : void 0)();
-            var _GM_setValue = /* @__PURE__ */ (() => typeof GM_setValue != "undefined" ? GM_setValue : void 0)();
-            var _GM_xmlhttpRequest = /* @__PURE__ */ (() => typeof GM_xmlhttpRequest != "undefined" ? GM_xmlhttpRequest : void 0)();
-            const siteList = [
-                {
-                    name: "FANZA 動画",
-                    hostname: "dmm.co.jp",
-                    url: "https://www.dmm.co.jp/digital/videoa/-/detail/=/cid={{code}}/",
-                    fetchType: "get",
-                    codeFormater: (preCode) => {
-                        const [pre, num] = preCode.split("-");
-                        const padNum = num.padStart(5, "0");
-                        if (pre.toLowerCase().startsWith("start")) {
-                            return `1${pre.toLowerCase()}${padNum}`;
-                        }
-                        return `${pre}${padNum}`;
-                    },
-                    domQuery: {}
-                },
-                {
-                    name: "Jable",
-                    hostname: "jable.tv",
-                    url: "https://jable.tv/videos/{{code}}/",
-                    fetchType: "get",
-                    domQuery: {
-                        subQuery: ".info-header",
-                        leakQuery: ".info-header"
-                    }
-                },
-                {
-                    name: "MISSAV",
-                    hostname: "missav.ws",
-                    url: "https://missav.ws/{{code}}/",
-                    fetchType: "get",
-                    domQuery: {
-                        subQuery: '.space-y-2 a.text-nord13[href="https://missav.ws/chinese-subtitle"]',
-                        leakQuery: ".order-first div.rounded-md a[href]:last-child"
-                    }
-                },
-                {
-                    name: "123av",
-                    hostname: "123av.com",
-                    url: "https://123av.com/zh/search?keyword={{code}}",
-                    fetchType: "parser",
-                    strictParser: true,
-                    domQuery: {
-                        linkQuery: `.detail>a[href*='v/']`,
-                        titleQuery: `.detail>a[href*='v/']`
-                    }
-                },
-                {
-                    name: "Supjav",
-                    hostname: "supjav.com",
-                    url: "https://supjav.com/zh/?s={{code}}",
-                    fetchType: "parser",
-                    domQuery: {
-                        linkQuery: `.posts.clearfix>.post>a.img[title]`,
-                        titleQuery: `h3>a[rel="bookmark"][itemprop="url"]`
-                    }
-                },
-                {
-                    name: "NETFLAV",
-                    hostname: "netflav5.com",
-                    url: "https://netflav5.com/search?type=title&keyword={{code}}",
-                    fetchType: "parser",
-                    domQuery: {
-                        linkQuery: ".grid_0_cell>a[href^='/video?']",
-                        titleQuery: ".grid_0_cell>a[href^='/video?'] .grid_0_title"
-                    }
-                },
-                {
-                    name: "Avgle",
-                    hostname: "avgle.com",
-                    url: "https://avgle.com/search/videos?search_query={{code}}&search_type=videos",
-                    fetchType: "parser",
-                    domQuery: {
-                        linkQuery: ".container>.row .row .well>a[href]",
-                        titleQuery: ".container>.row .row .well .video-title"
-                    }
-                },
-                {
-                    name: "JAVHHH",
-                    hostname: "javhhh.com",
-                    url: "https://javhhh.com/v/?wd={{code}}",
-                    fetchType: "parser",
-                    domQuery: {
-                        linkQuery: ".typelist>.i-container>a[href]",
-                        titleQuery: ".typelist>.i-container>a[href]"
-                    }
-                },
-                {
-                    name: "BestJP",
-                    hostname: "bestjavporn.com",
-                    url: "https://www3.bestjavporn.com/search/{{code}}",
-                    fetchType: "parser",
-                    domQuery: { linkQuery: "article.thumb-block>a", titleQuery: "article.thumb-block>a" }
-                },
-                {
-                    name: "JAVMENU",
-                    hostname: "javmenu.com",
-                    url: "https://javmenu.com/{{code}}",
-                    fetchType: "get",
-                    domQuery: {
-                        videoQuery: "a.nav-link[aria-controls='pills-0']"
-                    }
-                },
-                {
-                    name: "Jav.Guru",
-                    hostname: "jav.guru",
-                    url: "https://jav.guru/?s={{code}}",
-                    fetchType: "parser",
-                    domQuery: { linkQuery: ".imgg>a[href]", titleQuery: ".inside-article>.grid1 a[title]" }
-                },
-                {
-                    name: "JAVMOST",
-                    hostname: "javmost.cx",
-                    url: "https://javmost.cx/search/{{code}}/",
-                    fetchType: "parser",
-                    domQuery: {
-                        linkQuery: ".card #myButton",
-                        titleQuery: ".card-block h4.card-title"
-                    }
-                },
-                {
-                    name: "HAYAV",
-                    hostname: "hayav.com",
-                    url: "https://hayav.com/video/{{code}}/",
-                    fetchType: "get",
-                    domQuery: {}
-                },
-                {
-                    name: "AvJoy",
-                    hostname: "avjoy.me",
-                    url: "https://avjoy.me/search/videos/{{code}}",
-                    fetchType: "parser",
-                    domQuery: {
-                        titleQuery: `#wrapper .row .content-info span.content-title`,
-                        linkQuery: `#wrapper .row a[href^="/video/"]`
-                    }
-                },
-                {
-                    name: "JAVFC2",
-                    hostname: "javfc2.net",
-                    url: "https://javfc2.net/?s={{code}}",
-                    fetchType: "parser",
-                    domQuery: {
-                        linkQuery: "article.loop-video>a[href]",
-                        titleQuery: "article.loop-video .entry-header"
-                    }
-                },
-                {
-                    name: "baihuse",
-                    hostname: "paipancon.com",
-                    url: "https://paipancon.com/search/{{code}}",
-                    fetchType: "parser",
-                    domQuery: {
-                        linkQuery: "div.col>div.card>a[href]",
-                        titleQuery: "div.card img.card-img-top"
-                    }
-                },
-                {
-                    name: "GGJAV",
-                    hostname: "ggjav.com",
-                    url: "https://ggjav.com/main/search?string={{code}}",
-                    fetchType: "parser",
-                    domQuery: {
-                        listIndex: 1,
-                        titleQuery: "div.columns.large-3.medium-6.small-12.item.float-left>div.item_title>a.gray_a",
-                        linkQuery: "div.columns.large-3.medium-6.small-12.item.float-left>div.item_title>a.gray_a"
-                    }
-                },
-                {
-                    name: "AV01",
-                    hostname: "www.av01.tv",
-                    url: "https://www.av01.tv/search/videos?search_query={{code}}",
-                    fetchType: "parser",
-                    domQuery: {
-                        linkQuery: "div.well>a[href^='/video/']",
-                        titleQuery: "div.well>a[href^='/video/']"
-                    }
-                },
-                {
-                    name: "18sex",
-                    hostname: "18sex.org",
-                    url: "https://www.18sex.org/cn/search/{{code}}/",
-                    fetchType: "parser",
-                    domQuery: { linkQuery: ".white_link[href]", titleQuery: ".white_link>.card-title" }
-                },
-                {
-                    name: "highporn",
-                    hostname: "highporn.net",
-                    url: "https://highporn.net/search/videos?search_query={{code}}",
-                    fetchType: "parser",
-                    domQuery: { linkQuery: ".well>a[href]", titleQuery: ".well>a[href]>span.video-title" }
-                },
-                {
-                    name: "evojav",
-                    hostname: "evojav.pro",
-                    url: "https://evojav.pro/video/{{code}}/",
-                    fetchType: "get",
-                    domQuery: {}
-                },
-                {
-                    name: "18av",
-                    hostname: "18av.mm-cg.com",
-                    url: "https://18av.mm-cg.com/zh/fc_search/all/{{code}}/1.html",
-                    fetchType: "parser",
-                    domQuery: { linkQuery: ".posts h3>a[href]", titleQuery: ".posts h3>a[href]" }
-                },
-                {
-                    name: "javgo",
-                    hostname: "javgo.to",
-                    url: "https://javgo.to/zh/v/{{code}}",
-                    fetchType: "get",
-                    domQuery: {}
-                },
-                {
-                    name: "javhub",
-                    hostname: "javhub.net",
-                    url: "https://javhub.net/search/{{code}}",
-                    fetchType: "parser",
-                    domQuery: { linkQuery: "a.card-text[href*='play']", titleQuery: "a.card-text[href*='play']" }
-                },
-                {
-                    name: "JavBus",
-                    hostname: "javbus.com",
-                    url: "https://javbus.com/{{code}}",
-                    fetchType: "get",
-                    domQuery: {},
-                    codeFormater: (preCode) => preCode.startsWith("MIUM") ? `${SP_PREFIX}${preCode}` : preCode
-                },
-                {
-                    name: "JavDB",
-                    hostname: "javdb.com",
-                    url: "https://javdb.com/search?q={{code}}",
-                    fetchType: "parser",
-                    domQuery: {
-                        linkQuery: ".movie-list>.item:first-child>a",
-                        titleQuery: ".video-title"
-                    }
-                },
-                {
-                    name: "JAVLib",
-                    hostname: "javlibrary.com",
-                    url: "https://www.javlibrary.com/cn/vl_searchbyid.php?keyword={{code}}",
-                    fetchType: "false"
-                }
-            ];
-            const SP_PREFIX = "300";
-            const gmGet = ({ url }) => {
-                return new Promise((resolve, reject) => {
-                    _GM_xmlhttpRequest({
-                        method: "GET",
-                        url,
-                        onload: (response) => resolve(response),
-                        onerror: (error) => reject(error)
-                    });
-                });
-            };
-            const isCaseInsensitiveEqual = (str1, str2) => {
-                if (!str1 || !str2) return false;
-                return str1.toLowerCase() === str2.toLowerCase();
-            };
-            const isErrorCode = (resCode) => {
-                return [404, 403].includes(resCode);
-            };
-            const getCode = (libItem) => {
-                const { codeQueryStr } = libItem.querys;
-                const codeNode = document.querySelector(codeQueryStr);
-                if (!codeNode) return "";
-                const codeText = libItem.name === "javdb" ? codeNode.dataset.clipboardText : codeNode.innerText.replace("复制", "");
-                if (codeText.includes("FC2")) return codeText.split("-")[1];
-                if (codeText.startsWith(SP_PREFIX)) return codeText.substring(3);
-                return codeText;
-            };
-            const regEnum = {
-                subtitle: /(中文|字幕|subtitle)/,
-                leakage: /(无码|無碼|泄漏|泄露|Uncensored)/
-            };
-            const tagsQuery = ({
-                leakageText,
-                subtitleText
-            }) => {
-                const hasLeakage = regEnum.leakage.test(leakageText);
-                const hasSubtitle = regEnum.subtitle.test(subtitleText);
-                const tags = [];
-                if (hasLeakage) tags.push("无码");
-                if (hasSubtitle) tags.push("字幕");
-                return tags.join(" ");
-            };
-            var t, r, u, i, o = 0, f = [], c = preact.options, e = c.__b, a = c.__r, v = c.diffed, l = c.__c, m = c.unmount, s = c.__;
-            function d(n, t2) {
-                c.__h && c.__h(r, n, o || t2), o = 0;
-                var u2 = r.__H || (r.__H = { __: [], __h: [] });
-                return n >= u2.__.length && u2.__.push({}), u2.__[n];
-            }
-            function h(n) {
-                return o = 1, p(D, n);
-            }
-            function p(n, u2, i2) {
-                var o2 = d(t++, 2);
-                if (o2.t = n, !o2.__c && (o2.__ = [D(void 0, u2), function(n2) {
-                    var t2 = o2.__N ? o2.__N[0] : o2.__[0], r2 = o2.t(t2, n2);
-                    t2 !== r2 && (o2.__N = [r2, o2.__[1]], o2.__c.setState({}));
-                }], o2.__c = r, !r.u)) {
-                    var f2 = function(n2, t2, r2) {
-                        if (!o2.__c.__H) return true;
-                        var u3 = o2.__c.__H.__.filter(function(n3) {
-                            return !!n3.__c;
-                        });
-                        if (u3.every(function(n3) {
-                            return !n3.__N;
-                        })) return !c2 || c2.call(this, n2, t2, r2);
-                        var i3 = o2.__c.props !== n2;
-                        return u3.forEach(function(n3) {
-                            if (n3.__N) {
-                                var t3 = n3.__[0];
-                                n3.__ = n3.__N, n3.__N = void 0, t3 !== n3.__[0] && (i3 = true);
-                            }
-                        }), c2 && c2.call(this, n2, t2, r2) || i3;
-                    };
-                    r.u = true;
-                    var c2 = r.shouldComponentUpdate, e2 = r.componentWillUpdate;
-                    r.componentWillUpdate = function(n2, t2, r2) {
-                        if (this.__e) {
-                            var u3 = c2;
-                            c2 = void 0, f2(n2, t2, r2), c2 = u3;
-                        }
-                        e2 && e2.call(this, n2, t2, r2);
-                    }, r.shouldComponentUpdate = f2;
-                }
-                return o2.__N || o2.__;
-            }
-            function y(n, u2) {
-                var i2 = d(t++, 3);
-                !c.__s && C(i2.__H, u2) && (i2.__ = n, i2.i = u2, r.__H.__h.push(i2));
-            }
-            function j$1() {
-                for (var n; n = f.shift(); ) if (n.__P && n.__H) try {
-                    n.__H.__h.forEach(z), n.__H.__h.forEach(B$1), n.__H.__h = [];
-                } catch (t2) {
-                    n.__H.__h = [], c.__e(t2, n.__v);
-                }
-            }
-            c.__b = function(n) {
-                r = null, e && e(n);
-            }, c.__ = function(n, t2) {
-                n && t2.__k && t2.__k.__m && (n.__m = t2.__k.__m), s && s(n, t2);
-            }, c.__r = function(n) {
-                a && a(n), t = 0;
-                var i2 = (r = n.__c).__H;
-                i2 && (u === r ? (i2.__h = [], r.__h = [], i2.__.forEach(function(n2) {
-                    n2.__N && (n2.__ = n2.__N), n2.i = n2.__N = void 0;
-                })) : (i2.__h.forEach(z), i2.__h.forEach(B$1), i2.__h = [], t = 0)), u = r;
-            }, c.diffed = function(n) {
-                v && v(n);
-                var t2 = n.__c;
-                t2 && t2.__H && (t2.__H.__h.length && (1 !== f.push(t2) && i === c.requestAnimationFrame || ((i = c.requestAnimationFrame) || w)(j$1)), t2.__H.__.forEach(function(n2) {
-                    n2.i && (n2.__H = n2.i), n2.i = void 0;
-                })), u = r = null;
-            }, c.__c = function(n, t2) {
-                t2.some(function(n2) {
-                    try {
-                        n2.__h.forEach(z), n2.__h = n2.__h.filter(function(n3) {
-                            return !n3.__ || B$1(n3);
-                        });
-                    } catch (r2) {
-                        t2.some(function(n3) {
-                            n3.__h && (n3.__h = []);
-                        }), t2 = [], c.__e(r2, n2.__v);
-                    }
-                }), l && l(n, t2);
-            }, c.unmount = function(n) {
-                m && m(n);
-                var t2, r2 = n.__c;
-                r2 && r2.__H && (r2.__H.__.forEach(function(n2) {
-                    try {
-                        z(n2);
-                    } catch (n3) {
-                        t2 = n3;
-                    }
-                }), r2.__H = void 0, t2 && c.__e(t2, r2.__v));
-            };
-            var k = "function" == typeof requestAnimationFrame;
-            function w(n) {
-                var t2, r2 = function() {
-                    clearTimeout(u2), k && cancelAnimationFrame(t2), setTimeout(n);
-                }, u2 = setTimeout(r2, 100);
-                k && (t2 = requestAnimationFrame(r2));
-            }
-            function z(n) {
-                var t2 = r, u2 = n.__c;
-                "function" == typeof u2 && (n.__c = void 0, u2()), r = t2;
-            }
-            function B$1(n) {
-                var t2 = r;
-                n.__c = n.__(), r = t2;
-            }
-            function C(n, t2) {
-                return !n || n.length !== t2.length || t2.some(function(t3, r2) {
-                    return t3 !== n[r2];
-                });
-            }
-            function D(n, t2) {
-                return "function" == typeof t2 ? t2(n) : t2;
-            }
-            function g(n, t2) {
-                for (var e2 in t2) n[e2] = t2[e2];
-                return n;
-            }
-            function E(n, t2) {
-                for (var e2 in n) if ("__source" !== e2 && !(e2 in t2)) return true;
-                for (var r2 in t2) if ("__source" !== r2 && n[r2] !== t2[r2]) return true;
-                return false;
-            }
-            function N(n, t2) {
-                this.props = n, this.context = t2;
-            }
-            function M(n, e2) {
-                function r2(n2) {
-                    var t2 = this.props.ref, r3 = t2 == n2.ref;
-                    return !r3 && t2 && (t2.call ? t2(null) : t2.current = null), E(this.props, n2);
-                }
-                function u2(e3) {
-                    return this.shouldComponentUpdate = r2, preact.createElement(n, e3);
-                }
-                return u2.displayName = "Memo(" + (n.displayName || n.name) + ")", u2.prototype.isReactComponent = true, u2.__f = true, u2;
-            }
-            (N.prototype = new preact.Component()).isPureReactComponent = true, N.prototype.shouldComponentUpdate = function(n, t2) {
-                return E(this.props, n) || E(this.state, t2);
-            };
-            var T = preact.options.__b;
-            preact.options.__b = function(n) {
-                n.type && n.type.__f && n.ref && (n.props.ref = n.ref, n.ref = null), T && T(n);
-            };
-            var F = preact.options.__e;
-            preact.options.__e = function(n, t2, e2, r2) {
-                if (n.then) {
-                    for (var u2, o2 = t2; o2 = o2.__; ) if ((u2 = o2.__c) && u2.__c) return null == t2.__e && (t2.__e = e2.__e, t2.__k = e2.__k), u2.__c(n, t2);
-                }
-                F(n, t2, e2, r2);
-            };
-            var U = preact.options.unmount;
-            function V(n, t2, e2) {
-                return n && (n.__c && n.__c.__H && (n.__c.__H.__.forEach(function(n2) {
-                    "function" == typeof n2.__c && n2.__c();
-                }), n.__c.__H = null), null != (n = g({}, n)).__c && (n.__c.__P === e2 && (n.__c.__P = t2), n.__c = null), n.__k = n.__k && n.__k.map(function(n2) {
-                    return V(n2, t2, e2);
-                })), n;
-            }
-            function W(n, t2, e2) {
-                return n && e2 && (n.__v = null, n.__k = n.__k && n.__k.map(function(n2) {
-                    return W(n2, t2, e2);
-                }), n.__c && n.__c.__P === t2 && (n.__e && e2.appendChild(n.__e), n.__c.__e = true, n.__c.__P = e2)), n;
-            }
-            function P() {
-                this.__u = 0, this.o = null, this.__b = null;
-            }
-            function j(n) {
-                var t2 = n.__.__c;
-                return t2 && t2.__a && t2.__a(n);
-            }
-            function B() {
-                this.i = null, this.l = null;
-            }
-            preact.options.unmount = function(n) {
-                var t2 = n.__c;
-                t2 && t2.__R && t2.__R(), t2 && 32 & n.__u && (n.type = null), U && U(n);
-            }, (P.prototype = new preact.Component()).__c = function(n, t2) {
-                var e2 = t2.__c, r2 = this;
-                null == r2.o && (r2.o = []), r2.o.push(e2);
-                var u2 = j(r2.__v), o2 = false, i2 = function() {
-                    o2 || (o2 = true, e2.__R = null, u2 ? u2(c2) : c2());
-                };
-                e2.__R = i2;
-                var c2 = function() {
-                    if (!--r2.__u) {
-                        if (r2.state.__a) {
-                            var n2 = r2.state.__a;
-                            r2.__v.__k[0] = W(n2, n2.__c.__P, n2.__c.__O);
-                        }
-                        var t3;
-                        for (r2.setState({ __a: r2.__b = null }); t3 = r2.o.pop(); ) t3.forceUpdate();
-                    }
-                };
-                r2.__u++ || 32 & t2.__u || r2.setState({ __a: r2.__b = r2.__v.__k[0] }), n.then(i2, i2);
-            }, P.prototype.componentWillUnmount = function() {
-                this.o = [];
-            }, P.prototype.render = function(n, e2) {
-                if (this.__b) {
-                    if (this.__v.__k) {
-                        var r2 = document.createElement("div"), o2 = this.__v.__k[0].__c;
-                        this.__v.__k[0] = V(this.__b, r2, o2.__O = o2.__P);
-                    }
-                    this.__b = null;
-                }
-                var i2 = e2.__a && preact.createElement(preact.Fragment, null, n.fallback);
-                return i2 && (i2.__u &= -33), [preact.createElement(preact.Fragment, null, e2.__a ? null : n.children), i2];
-            };
-            var H = function(n, t2, e2) {
-                if (++e2[1] === e2[0] && n.l.delete(t2), n.props.revealOrder && ("t" !== n.props.revealOrder[0] || !n.l.size)) for (e2 = n.i; e2; ) {
-                    for (; e2.length > 3; ) e2.pop()();
-                    if (e2[1] < e2[0]) break;
-                    n.i = e2 = e2[2];
-                }
-            };
-            (B.prototype = new preact.Component()).__a = function(n) {
-                var t2 = this, e2 = j(t2.__v), r2 = t2.l.get(n);
-                return r2[0]++, function(u2) {
-                    var o2 = function() {
-                        t2.props.revealOrder ? (r2.push(u2), H(t2, n, r2)) : u2();
-                    };
-                    e2 ? e2(o2) : o2();
-                };
-            }, B.prototype.render = function(n) {
-                this.i = null, this.l = /* @__PURE__ */ new Map();
-                var t2 = preact.toChildArray(n.children);
-                n.revealOrder && "b" === n.revealOrder[0] && t2.reverse();
-                for (var e2 = t2.length; e2--; ) this.l.set(t2[e2], this.i = [1, 0, this.i]);
-                return n.children;
-            }, B.prototype.componentDidUpdate = B.prototype.componentDidMount = function() {
-                var n = this;
-                this.l.forEach(function(t2, e2) {
-                    H(n, e2, t2);
-                });
-            };
-            var q = "undefined" != typeof Symbol && Symbol.for && Symbol.for("react.element") || 60103, G = /^(?:accent|alignment|arabic|baseline|cap|clip(?!PathU)|color|dominant|fill|flood|font|glyph(?!R)|horiz|image(!S)|letter|lighting|marker(?!H|W|U)|overline|paint|pointer|shape|stop|strikethrough|stroke|text(?!L)|transform|underline|unicode|units|v|vector|vert|word|writing|x(?!C))[A-Z]/, J = /^on(Ani|Tra|Tou|BeforeInp|Compo)/, K = /[A-Z0-9]/g, Q = "undefined" != typeof document, X = function(n) {
-                return ("undefined" != typeof Symbol && "symbol" == typeof Symbol() ? /fil|che|rad/ : /fil|che|ra/).test(n);
-            };
-            preact.Component.prototype.isReactComponent = {}, ["componentWillMount", "componentWillReceiveProps", "componentWillUpdate"].forEach(function(t2) {
-                Object.defineProperty(preact.Component.prototype, t2, { configurable: true, get: function() {
-                    return this["UNSAFE_" + t2];
-                }, set: function(n) {
-                    Object.defineProperty(this, t2, { configurable: true, writable: true, value: n });
-                } });
-            });
-            var en = preact.options.event;
-            function rn() {
-            }
-            function un() {
-                return this.cancelBubble;
-            }
-            function on() {
-                return this.defaultPrevented;
-            }
-            preact.options.event = function(n) {
-                return en && (n = en(n)), n.persist = rn, n.isPropagationStopped = un, n.isDefaultPrevented = on, n.nativeEvent = n;
-            };
-            var ln = { enumerable: false, configurable: true, get: function() {
-                return this.class;
-            } }, fn = preact.options.vnode;
-            preact.options.vnode = function(n) {
-                "string" == typeof n.type && function(n2) {
-                    var t2 = n2.props, e2 = n2.type, u2 = {}, o2 = -1 === e2.indexOf("-");
-                    for (var i2 in t2) {
-                        var c2 = t2[i2];
-                        if (!("value" === i2 && "defaultValue" in t2 && null == c2 || Q && "children" === i2 && "noscript" === e2 || "class" === i2 || "className" === i2)) {
-                            var l2 = i2.toLowerCase();
-                            "defaultValue" === i2 && "value" in t2 && null == t2.value ? i2 = "value" : "download" === i2 && true === c2 ? c2 = "" : "translate" === l2 && "no" === c2 ? c2 = false : "o" === l2[0] && "n" === l2[1] ? "ondoubleclick" === l2 ? i2 = "ondblclick" : "onchange" !== l2 || "input" !== e2 && "textarea" !== e2 || X(t2.type) ? "onfocus" === l2 ? i2 = "onfocusin" : "onblur" === l2 ? i2 = "onfocusout" : J.test(i2) && (i2 = l2) : l2 = i2 = "oninput" : o2 && G.test(i2) ? i2 = i2.replace(K, "-$&").toLowerCase() : null === c2 && (c2 = void 0), "oninput" === l2 && u2[i2 = l2] && (i2 = "oninputCapture"), u2[i2] = c2;
-                        }
-                    }
-                    "select" == e2 && u2.multiple && Array.isArray(u2.value) && (u2.value = preact.toChildArray(t2.children).forEach(function(n3) {
-                        n3.props.selected = -1 != u2.value.indexOf(n3.props.value);
-                    })), "select" == e2 && null != u2.defaultValue && (u2.value = preact.toChildArray(t2.children).forEach(function(n3) {
-                        n3.props.selected = u2.multiple ? -1 != u2.defaultValue.indexOf(n3.props.value) : u2.defaultValue == n3.props.value;
-                    })), t2.class && !t2.className ? (u2.class = t2.class, Object.defineProperty(u2, "className", ln)) : (t2.className && !t2.class || t2.class && t2.className) && (u2.class = u2.className = t2.className), n2.props = u2;
-                }(n), n.$$typeof = q, fn && fn(n);
-            };
-            var an = preact.options.__r;
-            preact.options.__r = function(n) {
-                an && an(n), n.__c;
-            };
-            var sn = preact.options.diffed;
-            preact.options.diffed = function(n) {
-                sn && sn(n);
-                var t2 = n.props, e2 = n.__e;
-                null != e2 && "textarea" === n.type && "value" in t2 && t2.value !== e2.value && (e2.value = null == t2.value ? "" : t2.value);
-            };
-            const Tooltip = ({ content, children }) => {
-                const [isVisible, setIsVisible] = h(false);
-                return /* @__PURE__ */ u$1(
-                    "div",
-                    {
-                        className: "jop-tooltip-container",
-                        onMouseEnter: () => setIsVisible(true),
-                        onMouseLeave: () => setIsVisible(false),
-                        children: [
-                            children,
-                            isVisible && content && /* @__PURE__ */ u$1("div", { className: "jop-tooltip", children: content })
-                        ]
-                    }
-                );
-            };
-            const Checkbox = ({ label, value, tip, onChange }) => {
-                const handleChange = (event) => {
-                    onChange(event.currentTarget.checked);
-                };
-                return /* @__PURE__ */ u$1("label", { className: "jop-checkbox", children: [
-                    /* @__PURE__ */ u$1(
-                        "input",
-                        {
-                            type: "checkbox",
-                            className: "jop-checkbox-input",
-                            checked: value,
-                            onChange: handleChange
-                        }
-                    ),
-                    /* @__PURE__ */ u$1("span", { className: "jop-checkbox-custom" }),
-                    /* @__PURE__ */ u$1(Tooltip, { content: tip || "", children: /* @__PURE__ */ u$1("span", { className: "jop-checkbox-label", children: label }) })
-                ] });
-            };
-            const Setting = ({
-                siteList: siteList2,
-                setDisables,
-                disables,
-                multipleNavi,
-                setMultipleNavi,
-                hiddenError,
-                setHiddenError
-            }) => {
-                const [showSetting, setShowSetting] = h(false);
-                const hanleListChange = (item, isHidden) => {
-                    if (isHidden) {
-                        setDisables(disables.filter((disItem) => disItem !== item.name));
-                    } else {
-                        setDisables([...disables, item.name]);
-                    }
-                };
-                const handleNaviChange = (checked) => {
-                    setMultipleNavi(checked);
-                    _GM_setValue("multipleNavi", checked);
-                };
-                const handlehiddenErrorChange = (checked) => {
-                    setHiddenError(checked);
-                    _GM_setValue("hiddenError", checked);
-                };
-                return /* @__PURE__ */ u$1(preact.Fragment, { children: [
-                    !showSetting && /* @__PURE__ */ u$1("div", { className: "jop-button_def", onClick: () => setShowSetting(!showSetting), children: "设置" }),
-                    showSetting && /* @__PURE__ */ u$1(preact.Fragment, { children: [
-                        /* @__PURE__ */ u$1("div", { className: "jop-setting", children: [
-                            /* @__PURE__ */ u$1(Group, { title: "勾选默认展示", children: siteList2.map((item) => {
-                                const isHidden = disables.includes(item.name);
-                                return /* @__PURE__ */ u$1(
-                                    Checkbox,
-                                    {
-                                        label: item.name,
-                                        value: !isHidden,
-                                        onChange: (checked) => hanleListChange(item, checked)
-                                    }
-                                );
-                            }) }),
-                            /* @__PURE__ */ u$1(Group, { title: "其他设置", children: [
-                                /* @__PURE__ */ u$1(
-                                    Checkbox,
-                                    {
-                                        label: "展示多个搜索结果",
-                                        value: multipleNavi,
-                                        tip: "一个站点内出现多条匹配结果时，打开后跳转搜索结果页",
-                                        onChange: handleNaviChange
-                                    }
-                                ),
-                                /* @__PURE__ */ u$1(
-                                    Checkbox,
-                                    {
-                                        label: "隐藏失败结果",
-                                        value: hiddenError,
-                                        onChange: handlehiddenErrorChange
-                                    }
-                                )
-                            ] })
-                        ] }),
-                        /* @__PURE__ */ u$1(
-                            "div",
-                            {
-                                className: "jop-button_def",
-                                onClick: () => {
-                                    setShowSetting(!showSetting);
-                                },
-                                children: "收起设置"
-                            }
-                        )
-                    ] })
-                ] });
-            };
-            const Group = ({ title, children }) => {
-                return /* @__PURE__ */ u$1(preact.Fragment, { children: [
-                    /* @__PURE__ */ u$1("h4", { className: "jop-setting-title", children: title }),
-                    /* @__PURE__ */ u$1("div", { className: "jop-setting-list", children })
-                ] });
-            };
-            function videoPageParser(responseText, { subQuery, leakQuery, videoQuery }) {
-                const doc = new DOMParser().parseFromString(responseText, "text/html");
-                const subNode = subQuery ? doc.querySelector(subQuery) : "";
-                const subNodeText = subNode ? subNode.innerHTML : "";
-                const leakNode = leakQuery ? doc.querySelector(leakQuery) : null;
-                const leakNodeText = leakNode ? leakNode.innerHTML : "";
-                const videoNode = videoQuery ? doc.querySelector(videoQuery) : true;
-                return {
-                    isSuccess: !!videoNode,
-                    tag: tagsQuery({ leakageText: leakNodeText, subtitleText: subNodeText })
-                };
-            }
-            function searchPageCodeCheck(titleNodes, siteItem, CODE) {
-                if (!titleNodes || titleNodes.length === 0) return { isSuccess: false, titleNodeText: "" };
-                const codeRegex = /[a-zA-Z]{3,5}-\d{3,5}/;
-                if (siteItem.strictParser) {
-                    const nodes = Array.from(titleNodes);
-                    const passNodes = nodes.filter((node) => {
-                        const nodeCode = node.outerHTML.match(codeRegex);
-                        return isCaseInsensitiveEqual(nodeCode == null ? void 0 : nodeCode[0], CODE);
-                    });
-                    const titleNodeText = passNodes.map((node) => node.outerHTML).join(" ");
-                    return {
-                        titleNodeText,
-                        isSuccess: passNodes.length > 0,
-                        multipleRes: passNodes.length > 1
-                    };
-                } else {
-                    const titleNode = titleNodes[siteItem.domQuery.listIndex ?? 0];
-                    const titleNodeText = titleNode ? titleNode == null ? void 0 : titleNode.outerHTML : "";
-                    const matchCode = titleNodeText.match(codeRegex);
-                    const isSuccess = isCaseInsensitiveEqual(matchCode == null ? void 0 : matchCode[0], CODE);
-                    return { titleNodeText, isSuccess, multipleRes: titleNodes.length > 1 };
-                }
-            }
-            function serachPageParser(responseText, siteItem, CODE) {
-                const { linkQuery, titleQuery } = siteItem.domQuery;
-                const doc = new DOMParser().parseFromString(responseText, "text/html");
-                const titleNodes = titleQuery ? doc.querySelectorAll(titleQuery) : [];
-                const { isSuccess, titleNodeText, multipleRes } = searchPageCodeCheck(titleNodes, siteItem, CODE);
-                const linkNodes = linkQuery ? doc.querySelectorAll(linkQuery) : [];
-                const linkNode = linkNodes[siteItem.domQuery.listIndex ?? 0];
-                if (!isSuccess) {
-                    return { isSuccess: false };
-                }
-                const resultLinkText = linkNode.href.replace(linkNode.hostname, siteItem.hostname);
-                return {
-                    isSuccess: true,
-                    resultLink: resultLinkText,
-                    multipleRes,
-                    tag: tagsQuery({ leakageText: titleNodeText, subtitleText: titleNodeText })
-                };
-            }
-            const baseFetcher = async ({ siteItem, targetLink, CODE }) => {
-                if (siteItem.fetchType === "false") {
-                    return Promise.resolve({
-                        isSuccess: true,
-                        resultLink: targetLink
-                    });
-                }
-                try {
-                    const response = await gmGet({ url: targetLink });
-                    if (isErrorCode(response.status)) {
-                        throw Error(String(response.status));
-                    }
-                    if (siteItem.fetchType === "get") {
-                        return {
-                            resultLink: targetLink,
-                            ...videoPageParser(response.responseText, siteItem.domQuery)
-                        };
-                    } else {
-                        return {
-                            ...serachPageParser(response.responseText, siteItem, CODE)
-                        };
-                    }
-                } catch (error) {
-                    return {
-                        isSuccess: false
-                    };
-                }
-            };
-            const javbleFetcher = async (args) => {
-                const res = await baseFetcher(args);
-                if (res.isSuccess) return res;
-                const newLink = args.targetLink.slice(0, -1) + "-c/";
-                return await baseFetcher({ ...args, targetLink: newLink });
-            };
-            const fetcher = (args) => {
-                if (args.siteItem.name === "Jable") {
-                    return javbleFetcher(args);
-                }
-                return baseFetcher(args);
-            };
-            const SiteBtn = ({ siteItem, CODE, multipleNavi, hiddenError }) => {
-                const { name, codeFormater } = siteItem;
-                const formatCode = codeFormater ? codeFormater(CODE) : CODE;
-                const originLink = siteItem.url.replace("{{code}}", formatCode);
-                const [loading, setLoading] = h(false);
-                const [fetchRes, setFetchRes] = h();
-                y(() => {
-                    setLoading(true);
-                    fetcher({ siteItem, targetLink: originLink, CODE: formatCode }).then((res) => {
-                        setFetchRes(res);
-                        setLoading(false);
-                    });
-                }, [fetcher, siteItem, CODE, originLink]);
-                const multipleFlag = multipleNavi && (fetchRes == null ? void 0 : fetchRes.multipleRes);
-                const tag = multipleFlag ? "多结果" : fetchRes == null ? void 0 : fetchRes.tag;
-                const resultLink = multipleFlag ? originLink : fetchRes == null ? void 0 : fetchRes.resultLink;
-                const colorClass = (fetchRes == null ? void 0 : fetchRes.isSuccess) ? "jop-button_green " : "jop-button_red ";
-                if (hiddenError && !(fetchRes == null ? void 0 : fetchRes.isSuccess)) {
-                    return /* @__PURE__ */ u$1(preact.Fragment, {});
-                }
-                return /* @__PURE__ */ u$1(
-                    "a",
-                    {
-                        className: "jop-button " + (loading ? " " : colorClass),
-                        target: "_blank",
-                        href: !resultLink ? originLink : resultLink,
-                        children: [
-                            tag && /* @__PURE__ */ u$1("div", { className: "jop-button_label", children: tag }),
-                            /* @__PURE__ */ u$1("span", { children: name })
-                        ]
-                    }
-                );
-            };
-            const App = M(function({ libItem, CODE }) {
-                const DEF_DIS = [
-                    ...["JavBus", "JavDB", "JAVLib", "MISSAV", "123av", "javhub", "javgo", "JAVMENU"]
-                ];
-                const [disables, setDisables] = h(_GM_getValue("disable", DEF_DIS));
-                const [multipleNavi, setMultipleNavi] = h(_GM_getValue("multipleNavi", true));
-                const [hiddenError, setHiddenError] = h(_GM_getValue("hiddenError", false));
-                const list = siteList.filter(
-                    (siteItem) => !disables.includes(siteItem.name) && !siteItem.hostname.includes(libItem.name)
-                );
-                return /* @__PURE__ */ u$1(preact.Fragment, { children: [
-                    /* @__PURE__ */ u$1("div", { class: "jop-list", children: list.map((siteItem) => /* @__PURE__ */ u$1(
-                        SiteBtn,
-                        {
-                            siteItem,
-                            CODE,
-                            multipleNavi,
-                            hiddenError
-                        },
-                        siteItem.name
-                    )) }),
-                    /* @__PURE__ */ u$1(
-                        Setting,
-                        {
-                            siteList,
-                            setDisables: (disable) => {
-                                setDisables(disable);
-                                _GM_setValue("disable", disable);
-                            },
-                            multipleNavi,
-                            setMultipleNavi: (multipleNavi2) => {
-                                setMultipleNavi(multipleNavi2);
-                                _GM_setValue("multipleNavi", multipleNavi2);
-                            },
-                            disables,
-                            hiddenError,
-                            setHiddenError: (v2) => {
-                                setHiddenError(v2);
-                                _GM_setValue("hiddenError", v2);
-                            }
-                        }
-                    )
-                ] });
-            });
-            function main() {
-                const libItem = libSites.find((item) => document.querySelector(item.identifier));
-                if (!libItem) {
-                    console.error("||jop 匹配站点失败");
-                    return;
-                }
-                const CODE = getCode(libItem);
-                libItem.method();
-                const panel = document.querySelector(libItem.querys.panelQueryStr);
-                if (!panel) {
-                    console.error("||jop 插入界面失败");
-                    return;
-                }
-                const app = document.createElement("div");
-                app.classList.add("jop-app");
-                panel.append(app);
-                preact.render(/* @__PURE__ */ u$1(App, { libItem, CODE }), app);
-                console.log("||脚本挂载成功", CODE);
-            }
-            main();
-
-        })(preact);
+(o=>{if(typeof GM_addStyle=="function"){GM_addStyle(o);return}const e=document.createElement("style");e.textContent=o,document.head.append(e)})(' .jop-list{box-sizing:border-box;display:flex;flex-wrap:wrap;justify-content:flex-start;gap:10px;width:100%;height:100%;z-index:1;transition:right .2s ease-in-out;color:#000}.jop-button,.jop-button_def{position:relative;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:3px 10px;border-radius:4px;font-weight:500;font-size:14px;border:1px solid #dcdfe6;color:#606266;cursor:pointer}.jop-button_def{margin:10px 0;width:100px}.jop-button:visited{color:#606266}.jop-button:hover{text-decoration:none;color:#409eff;border:1px solid #c6e2ff;background-color:#ecf5ff}.jop-button_label{position:absolute;font-size:10px;padding:4px;border-radius:4px;top:-13px;right:-10px;line-height:.75;color:#67c23a;border:1px solid #e1f3d8;background:#fff}.jop-button_green{color:#fff!important;background-color:#67c23a}.jop-button_green:hover{color:#fff!important;background-color:#95d475}.jop-button_red{color:#fff!important;background-color:#f56c6c}.jop-button_red:hover{color:#fff!important;background-color:#f89898}.jop-loading{display:inline-block;width:14px;height:14px;margin-right:10px;border:2px dashed #dcdfe6;border-top-color:transparent;border-radius:100%;animation:btnLoading infinite 1s linear}@keyframes btnLoading{0%{transform:rotate(0)}to{transform:rotate(360deg)}}.jop-tag{padding:3px 6px;color:#409eff!important;background:#ecf5ff;border:1px solid #d9ecff;border-radius:4px}.jop-setting{margin-top:20px}.jop-setting-list{display:flex;flex-wrap:wrap}.jop-setting-title{margin:10px 0 5px;font-weight:700}.jop-setting-item{display:flex;height:20px;align-items:center;margin-right:15px;-webkit-user-select:none;user-select:none;cursor:pointer}.db-panel .movie-panel-info div.panel-block{padding:5.5px 12px}.db-panel .jop-app{padding:15px 12px}.lib-panel .jop-app{padding:20px 30px;margin-top:10px}input[type=checkbox],input[type=radio]{margin:0 0 0 5px;cursor:pointer}.jop-tooltip-container{position:relative;display:inline-block}.jop-tooltip{position:absolute;bottom:100%;left:50%;transform:translate(-50%);background-color:#333;color:#fff;padding:5px 10px;border-radius:4px;font-size:12px;white-space:nowrap;z-index:1000}.jop-setting-label{cursor:pointer}.jop-checkbox{display:inline-flex;align-items:center;cursor:pointer;margin-right:15px;-webkit-user-select:none;user-select:none}.jop-checkbox-input{position:absolute;opacity:0;cursor:pointer}.jop-checkbox-custom{position:relative;display:inline-block;width:16px;height:16px;background-color:#fff;border:1px solid #dcdfe6;border-radius:2px;transition:all .3s}.jop-checkbox-input:checked+.jop-checkbox-custom{background-color:#409eff;border-color:#409eff}.jop-checkbox-input:checked+.jop-checkbox-custom:after{content:"";position:absolute;top:1px;left:4px;width:5px;height:10px;border:solid white;border-width:0 2px 2px 0;transform:rotate(45deg)}.jop-checkbox-label{margin-left:3px;font-size:14px;color:#606266}.jop-checkbox:hover .jop-checkbox-custom{border-color:#409eff} ');
+ 
+(function (preact) {
+  'use strict';
+ 
+  var f$1 = 0;
+  function u$1(e2, t2, n, o2, i2, u2) {
+    t2 || (t2 = {});
+    var a2, c2, p2 = t2;
+    if ("ref" in p2) for (c2 in p2 = {}, t2) "ref" == c2 ? a2 = t2[c2] : p2[c2] = t2[c2];
+    var l2 = { type: e2, props: p2, key: n, ref: a2, __k: null, __: null, __b: 0, __e: null, __c: null, constructor: void 0, __v: --f$1, __i: -1, __u: 0, __source: i2, __self: u2 };
+    if ("function" == typeof e2 && (a2 = e2.defaultProps)) for (c2 in a2) void 0 === p2[c2] && (p2[c2] = a2[c2]);
+    return preact.options.vnode && preact.options.vnode(l2), l2;
+  }
+  const libSites = [
+    {
+      name: "javdb",
+      enable: true,
+      identifier: "a[href*='javdb']",
+      querys: {
+        panelQueryStr: ".video-meta-panel>.columns.is-desktop .panel.movie-panel-info",
+        codeQueryStr: `[data-clipboard-text]`
+      },
+      method() {
+        const columnVideoCover = document.querySelector(".column-video-cover");
+        if (columnVideoCover) {
+          columnVideoCover.style.width = "60%";
+        }
+        const panel = document.querySelector(
+          ".video-meta-panel>.columns.is-desktop>.column:not(.column-video-cover)"
+        );
+        panel == null ? void 0 : panel.classList.add("db-panel");
+      }
+    },
+    {
+      name: "javbus",
+      enable: true,
+      identifier: "a[href*='javbus']",
+      querys: {
+        panelQueryStr: ".movie>div.info",
+        codeQueryStr: `span[style="color:#CC0000;"]`
+      },
+      method() {
+      }
+    },
+    {
+      name: "javlib",
+      enable: true,
+      identifier: "img[src*='logo-top']",
+      querys: {
+        panelQueryStr: "#video_jacket_info #video_info",
+        codeQueryStr: `#video_id td.text`
+      },
+      method() {
+        const panel = document.querySelector("#video_info");
+        panel == null ? void 0 : panel.classList.add("lib-panel");
+      }
     }
+  ];
+  var _GM_getValue = /* @__PURE__ */ (() => typeof GM_getValue != "undefined" ? GM_getValue : void 0)();
+  var _GM_setValue = /* @__PURE__ */ (() => typeof GM_setValue != "undefined" ? GM_setValue : void 0)();
+  var _GM_xmlhttpRequest = /* @__PURE__ */ (() => typeof GM_xmlhttpRequest != "undefined" ? GM_xmlhttpRequest : void 0)();
+  const siteList = [
+    {
+      name: "FANZA 動画",
+      hostname: "dmm.co.jp",
+      url: "https://www.dmm.co.jp/digital/videoa/-/detail/=/cid={{code}}/",
+      // url: "https://video.dmm.co.jp/av/list/?key={{code}}",
+      fetchType: "get",
+      codeFormater: (preCode) => {
+        const [pre, num] = preCode.split("-");
+        const padNum = num.padStart(5, "0");
+        if (pre.toLowerCase().startsWith("start")) {
+          return `1${pre.toLowerCase()}${padNum}`;
+        }
+        return `${pre}${padNum}`;
+      },
+      domQuery: {}
+    },
+    {
+      name: "Jable",
+      hostname: "jable.tv",
+      url: "https://jable.tv/videos/{{code}}/",
+      fetchType: "get",
+      domQuery: {
+        subQuery: ".info-header",
+        leakQuery: ".info-header"
+      }
+    },
+    {
+      name: "MISSAV",
+      hostname: "missav.ws",
+      url: "https://missav.ws/{{code}}/",
+      fetchType: "get",
+      domQuery: {
+        // 标签区的第一个一般是字幕标签
+        subQuery: '.space-y-2 a.text-nord13[href="https://missav.ws/chinese-subtitle"]',
+        // 有个「切換無碼」按钮，藏在分享按钮旁边……
+        leakQuery: ".order-first div.rounded-md a[href]:last-child"
+      }
+    },
+    {
+      name: "123av",
+      hostname: "123av.com",
+      url: "https://123av.com/zh/search?keyword={{code}}",
+      fetchType: "parser",
+      strictParser: true,
+      domQuery: {
+        linkQuery: `.detail>a[href*='v/']`,
+        titleQuery: `.detail>a[href*='v/']`
+      }
+    },
+    {
+      // 有可能搜出仨：leakage subtitle 4k
+      name: "Supjav",
+      hostname: "supjav.com",
+      url: "https://supjav.com/zh/?s={{code}}",
+      fetchType: "parser",
+      domQuery: {
+        linkQuery: `.posts.clearfix>.post>a.img[title]`,
+        titleQuery: `h3>a[rel="bookmark"][itemprop="url"]`
+      }
+    },
+    {
+      name: "NETFLAV",
+      hostname: "netflav5.com",
+      url: "https://netflav5.com/search?type=title&keyword={{code}}",
+      fetchType: "parser",
+      domQuery: {
+        linkQuery: ".grid_0_cell>a[href^='/video?']",
+        titleQuery: ".grid_0_cell>a[href^='/video?'] .grid_0_title"
+      }
+    },
+    {
+      name: "Avgle",
+      hostname: "avgle.com",
+      url: "https://avgle.com/search/videos?search_query={{code}}&search_type=videos",
+      fetchType: "parser",
+      domQuery: {
+        linkQuery: ".container>.row .row .well>a[href]",
+        titleQuery: ".container>.row .row .well .video-title"
+      }
+    },
+    {
+      name: "JAVHHH",
+      hostname: "javhhh.com",
+      url: "https://javhhh.com/v/?wd={{code}}",
+      fetchType: "parser",
+      domQuery: {
+        linkQuery: ".typelist>.i-container>a[href]",
+        titleQuery: ".typelist>.i-container>a[href]"
+      }
+    },
+    {
+      name: "BestJP",
+      hostname: "bestjavporn.com",
+      url: "https://www3.bestjavporn.com/search/{{code}}",
+      fetchType: "parser",
+      domQuery: { linkQuery: "article.thumb-block>a", titleQuery: "article.thumb-block>a" }
+    },
+    {
+      name: "JAVMENU",
+      hostname: "javmenu.com",
+      url: "https://javmenu.com/{{code}}",
+      fetchType: "get",
+      domQuery: {
+        videoQuery: "a.nav-link[aria-controls='pills-0']"
+      }
+      // codeFormater: (preCode) => preCode.replace("-", ""),
+    },
+    {
+      name: "Jav.Guru",
+      hostname: "jav.guru",
+      url: "https://jav.guru/?s={{code}}",
+      fetchType: "parser",
+      domQuery: { linkQuery: ".imgg>a[href]", titleQuery: ".inside-article>.grid1 a[title]" }
+    },
+    {
+      name: "JAVMOST",
+      hostname: "javmost.cx",
+      url: "https://javmost.cx/search/{{code}}/",
+      fetchType: "parser",
+      domQuery: {
+        linkQuery: ".card #myButton",
+        titleQuery: ".card-block h4.card-title"
+      }
+    },
+    {
+      name: "HAYAV",
+      hostname: "hayav.com",
+      url: "https://hayav.com/video/{{code}}/",
+      fetchType: "get",
+      domQuery: {
+        // subQuery: `.site__col>.entry-header>h1.entry-title`,
+      }
+    },
+    {
+      name: "AvJoy",
+      hostname: "avjoy.me",
+      url: "https://avjoy.me/search/videos/{{code}}",
+      fetchType: "parser",
+      domQuery: {
+        titleQuery: `#wrapper .row .content-info span.content-title`,
+        linkQuery: `#wrapper .row a[href^="/video/"]`
+      }
+    },
+    {
+      name: "JAVFC2",
+      hostname: "javfc2.net",
+      url: "https://javfc2.net/?s={{code}}",
+      fetchType: "parser",
+      domQuery: {
+        linkQuery: "article.loop-video>a[href]",
+        titleQuery: "article.loop-video .entry-header"
+      }
+    },
+    {
+      name: "baihuse",
+      hostname: "paipancon.com",
+      url: "https://paipancon.com/search/{{code}}",
+      fetchType: "parser",
+      domQuery: {
+        linkQuery: "div.col>div.card>a[href]",
+        // 然而这个不是 title，是图片，这个站居然 title 里不包含 code，反而图片包含
+        titleQuery: "div.card img.card-img-top"
+      }
+    },
+    {
+      name: "GGJAV",
+      hostname: "ggjav.com",
+      url: "https://ggjav.com/main/search?string={{code}}",
+      fetchType: "parser",
+      domQuery: {
+        listIndex: 1,
+        // spaceCode: true,
+        titleQuery: "div.columns.large-3.medium-6.small-12.item.float-left>div.item_title>a.gray_a",
+        linkQuery: "div.columns.large-3.medium-6.small-12.item.float-left>div.item_title>a.gray_a"
+      }
+    },
+    {
+      name: "AV01",
+      hostname: "www.av01.tv",
+      url: "https://www.av01.tv/search/videos?search_query={{code}}",
+      fetchType: "parser",
+      domQuery: {
+        linkQuery: "div.well>a[href^='/video/']",
+        titleQuery: "div.well>a[href^='/video/']"
+      }
+    },
+    {
+      name: "18sex",
+      hostname: "18sex.org",
+      url: "https://www.18sex.org/cn/search/{{code}}/",
+      fetchType: "parser",
+      domQuery: { linkQuery: ".white_link[href]", titleQuery: ".white_link>.card-title" }
+    },
+    {
+      name: "highporn",
+      hostname: "highporn.net",
+      url: "https://highporn.net/search/videos?search_query={{code}}",
+      fetchType: "parser",
+      domQuery: { linkQuery: ".well>a[href]", titleQuery: ".well>a[href]>span.video-title" }
+    },
+    {
+      // 套了个 cf_clearance 的 cookie，不好搞
+      name: "evojav",
+      hostname: "evojav.pro",
+      url: "https://evojav.pro/video/{{code}}/",
+      fetchType: "get",
+      domQuery: {}
+    },
+    {
+      name: "18av",
+      hostname: "18av.mm-cg.com",
+      url: "https://18av.mm-cg.com/zh/fc_search/all/{{code}}/1.html",
+      fetchType: "parser",
+      domQuery: { linkQuery: ".posts h3>a[href]", titleQuery: ".posts h3>a[href]" }
+    },
+    {
+      name: "javgo",
+      hostname: "javgo.to",
+      url: "https://javgo.to/zh/v/{{code}}",
+      fetchType: "get",
+      domQuery: {}
+    },
+    {
+      name: "javhub",
+      hostname: "javhub.net",
+      url: "https://javhub.net/search/{{code}}",
+      fetchType: "parser",
+      domQuery: { linkQuery: "a.card-text[href*='play']", titleQuery: "a.card-text[href*='play']" }
+    },
+    {
+      name: "JavBus",
+      hostname: "javbus.com",
+      url: "https://javbus.com/{{code}}",
+      fetchType: "get",
+      domQuery: {},
+      codeFormater: (preCode) => preCode.startsWith("MIUM") ? `${SP_PREFIX}${preCode}` : preCode
+    },
+    {
+      name: "JavDB",
+      hostname: "javdb.com",
+      url: "https://javdb.com/search?q={{code}}",
+      fetchType: "parser",
+      domQuery: {
+        linkQuery: ".movie-list>.item:first-child>a",
+        titleQuery: ".video-title"
+      }
+    },
+    {
+      name: "JAVLib",
+      hostname: "javlibrary.com",
+      url: "https://www.javlibrary.com/cn/vl_searchbyid.php?keyword={{code}}",
+      fetchType: "false"
+      // domQuery: {
+      //   linkQuery: ".videothumblist .video[id]:first-child>a",
+      //   titleQuery: ".videothumblist .video[id]:first-child>a>div.id",
+      // },
+    }
+  ];
+  const SP_PREFIX = "300";
+  const gmGet = ({ url }) => {
+    return new Promise((resolve, reject) => {
+      _GM_xmlhttpRequest({
+        method: "GET",
+        url,
+        onload: (response) => resolve(response),
+        onerror: (error) => reject(error)
+      });
+    });
+  };
+  const isCaseInsensitiveEqual = (str1, str2) => {
+    if (!str1 || !str2) return false;
+    return str1.toLowerCase() === str2.toLowerCase();
+  };
+  const isErrorCode = (resCode) => {
+    return [404, 403].includes(resCode);
+  };
+  const getCode = (libItem) => {
+    const { codeQueryStr } = libItem.querys;
+    const codeNode = document.querySelector(codeQueryStr);
+    if (!codeNode) return "";
+    const codeText = libItem.name === "javdb" ? codeNode.dataset.clipboardText : codeNode.innerText.replace("复制", "");
+    if (codeText.includes("FC2")) return codeText.split("-")[1];
+    if (codeText.startsWith(SP_PREFIX)) return codeText.substring(3);
+    return codeText;
+  };
+  const regEnum = {
+    subtitle: /(中文|字幕|subtitle)/,
+    leakage: /(无码|無碼|泄漏|泄露|Uncensored)/
+  };
+  const tagsQuery = ({
+    leakageText,
+    subtitleText
+  }) => {
+    const hasLeakage = regEnum.leakage.test(leakageText);
+    const hasSubtitle = regEnum.subtitle.test(subtitleText);
+    const tags = [];
+    if (hasLeakage) tags.push("无码");
+    if (hasSubtitle) tags.push("字幕");
+    return tags.join(" ");
+  };
+  var t, r, u, i, o = 0, f = [], c = preact.options, e = c.__b, a = c.__r, v = c.diffed, l = c.__c, m = c.unmount, s = c.__;
+  function d(n, t2) {
+    c.__h && c.__h(r, n, o || t2), o = 0;
+    var u2 = r.__H || (r.__H = { __: [], __h: [] });
+    return n >= u2.__.length && u2.__.push({}), u2.__[n];
+  }
+  function h(n) {
+    return o = 1, p(D, n);
+  }
+  function p(n, u2, i2) {
+    var o2 = d(t++, 2);
+    if (o2.t = n, !o2.__c && (o2.__ = [D(void 0, u2), function(n2) {
+      var t2 = o2.__N ? o2.__N[0] : o2.__[0], r2 = o2.t(t2, n2);
+      t2 !== r2 && (o2.__N = [r2, o2.__[1]], o2.__c.setState({}));
+    }], o2.__c = r, !r.u)) {
+      var f2 = function(n2, t2, r2) {
+        if (!o2.__c.__H) return true;
+        var u3 = o2.__c.__H.__.filter(function(n3) {
+          return !!n3.__c;
+        });
+        if (u3.every(function(n3) {
+          return !n3.__N;
+        })) return !c2 || c2.call(this, n2, t2, r2);
+        var i3 = o2.__c.props !== n2;
+        return u3.forEach(function(n3) {
+          if (n3.__N) {
+            var t3 = n3.__[0];
+            n3.__ = n3.__N, n3.__N = void 0, t3 !== n3.__[0] && (i3 = true);
+          }
+        }), c2 && c2.call(this, n2, t2, r2) || i3;
+      };
+      r.u = true;
+      var c2 = r.shouldComponentUpdate, e2 = r.componentWillUpdate;
+      r.componentWillUpdate = function(n2, t2, r2) {
+        if (this.__e) {
+          var u3 = c2;
+          c2 = void 0, f2(n2, t2, r2), c2 = u3;
+        }
+        e2 && e2.call(this, n2, t2, r2);
+      }, r.shouldComponentUpdate = f2;
+    }
+    return o2.__N || o2.__;
+  }
+  function y(n, u2) {
+    var i2 = d(t++, 3);
+    !c.__s && C(i2.__H, u2) && (i2.__ = n, i2.i = u2, r.__H.__h.push(i2));
+  }
+  function j$1() {
+    for (var n; n = f.shift(); ) if (n.__P && n.__H) try {
+      n.__H.__h.forEach(z), n.__H.__h.forEach(B$1), n.__H.__h = [];
+    } catch (t2) {
+      n.__H.__h = [], c.__e(t2, n.__v);
+    }
+  }
+  c.__b = function(n) {
+    r = null, e && e(n);
+  }, c.__ = function(n, t2) {
+    n && t2.__k && t2.__k.__m && (n.__m = t2.__k.__m), s && s(n, t2);
+  }, c.__r = function(n) {
+    a && a(n), t = 0;
+    var i2 = (r = n.__c).__H;
+    i2 && (u === r ? (i2.__h = [], r.__h = [], i2.__.forEach(function(n2) {
+      n2.__N && (n2.__ = n2.__N), n2.i = n2.__N = void 0;
+    })) : (i2.__h.forEach(z), i2.__h.forEach(B$1), i2.__h = [], t = 0)), u = r;
+  }, c.diffed = function(n) {
+    v && v(n);
+    var t2 = n.__c;
+    t2 && t2.__H && (t2.__H.__h.length && (1 !== f.push(t2) && i === c.requestAnimationFrame || ((i = c.requestAnimationFrame) || w)(j$1)), t2.__H.__.forEach(function(n2) {
+      n2.i && (n2.__H = n2.i), n2.i = void 0;
+    })), u = r = null;
+  }, c.__c = function(n, t2) {
+    t2.some(function(n2) {
+      try {
+        n2.__h.forEach(z), n2.__h = n2.__h.filter(function(n3) {
+          return !n3.__ || B$1(n3);
+        });
+      } catch (r2) {
+        t2.some(function(n3) {
+          n3.__h && (n3.__h = []);
+        }), t2 = [], c.__e(r2, n2.__v);
+      }
+    }), l && l(n, t2);
+  }, c.unmount = function(n) {
+    m && m(n);
+    var t2, r2 = n.__c;
+    r2 && r2.__H && (r2.__H.__.forEach(function(n2) {
+      try {
+        z(n2);
+      } catch (n3) {
+        t2 = n3;
+      }
+    }), r2.__H = void 0, t2 && c.__e(t2, r2.__v));
+  };
+  var k = "function" == typeof requestAnimationFrame;
+  function w(n) {
+    var t2, r2 = function() {
+      clearTimeout(u2), k && cancelAnimationFrame(t2), setTimeout(n);
+    }, u2 = setTimeout(r2, 100);
+    k && (t2 = requestAnimationFrame(r2));
+  }
+  function z(n) {
+    var t2 = r, u2 = n.__c;
+    "function" == typeof u2 && (n.__c = void 0, u2()), r = t2;
+  }
+  function B$1(n) {
+    var t2 = r;
+    n.__c = n.__(), r = t2;
+  }
+  function C(n, t2) {
+    return !n || n.length !== t2.length || t2.some(function(t3, r2) {
+      return t3 !== n[r2];
+    });
+  }
+  function D(n, t2) {
+    return "function" == typeof t2 ? t2(n) : t2;
+  }
+  function g(n, t2) {
+    for (var e2 in t2) n[e2] = t2[e2];
+    return n;
+  }
+  function E(n, t2) {
+    for (var e2 in n) if ("__source" !== e2 && !(e2 in t2)) return true;
+    for (var r2 in t2) if ("__source" !== r2 && n[r2] !== t2[r2]) return true;
+    return false;
+  }
+  function N(n, t2) {
+    this.props = n, this.context = t2;
+  }
+  function M(n, e2) {
+    function r2(n2) {
+      var t2 = this.props.ref, r3 = t2 == n2.ref;
+      return !r3 && t2 && (t2.call ? t2(null) : t2.current = null), E(this.props, n2);
+    }
+    function u2(e3) {
+      return this.shouldComponentUpdate = r2, preact.createElement(n, e3);
+    }
+    return u2.displayName = "Memo(" + (n.displayName || n.name) + ")", u2.prototype.isReactComponent = true, u2.__f = true, u2;
+  }
+  (N.prototype = new preact.Component()).isPureReactComponent = true, N.prototype.shouldComponentUpdate = function(n, t2) {
+    return E(this.props, n) || E(this.state, t2);
+  };
+  var T = preact.options.__b;
+  preact.options.__b = function(n) {
+    n.type && n.type.__f && n.ref && (n.props.ref = n.ref, n.ref = null), T && T(n);
+  };
+  var F = preact.options.__e;
+  preact.options.__e = function(n, t2, e2, r2) {
+    if (n.then) {
+      for (var u2, o2 = t2; o2 = o2.__; ) if ((u2 = o2.__c) && u2.__c) return null == t2.__e && (t2.__e = e2.__e, t2.__k = e2.__k), u2.__c(n, t2);
+    }
+    F(n, t2, e2, r2);
+  };
+  var U = preact.options.unmount;
+  function V(n, t2, e2) {
+    return n && (n.__c && n.__c.__H && (n.__c.__H.__.forEach(function(n2) {
+      "function" == typeof n2.__c && n2.__c();
+    }), n.__c.__H = null), null != (n = g({}, n)).__c && (n.__c.__P === e2 && (n.__c.__P = t2), n.__c = null), n.__k = n.__k && n.__k.map(function(n2) {
+      return V(n2, t2, e2);
+    })), n;
+  }
+  function W(n, t2, e2) {
+    return n && e2 && (n.__v = null, n.__k = n.__k && n.__k.map(function(n2) {
+      return W(n2, t2, e2);
+    }), n.__c && n.__c.__P === t2 && (n.__e && e2.appendChild(n.__e), n.__c.__e = true, n.__c.__P = e2)), n;
+  }
+  function P() {
+    this.__u = 0, this.o = null, this.__b = null;
+  }
+  function j(n) {
+    var t2 = n.__.__c;
+    return t2 && t2.__a && t2.__a(n);
+  }
+  function B() {
+    this.i = null, this.l = null;
+  }
+  preact.options.unmount = function(n) {
+    var t2 = n.__c;
+    t2 && t2.__R && t2.__R(), t2 && 32 & n.__u && (n.type = null), U && U(n);
+  }, (P.prototype = new preact.Component()).__c = function(n, t2) {
+    var e2 = t2.__c, r2 = this;
+    null == r2.o && (r2.o = []), r2.o.push(e2);
+    var u2 = j(r2.__v), o2 = false, i2 = function() {
+      o2 || (o2 = true, e2.__R = null, u2 ? u2(c2) : c2());
+    };
+    e2.__R = i2;
+    var c2 = function() {
+      if (!--r2.__u) {
+        if (r2.state.__a) {
+          var n2 = r2.state.__a;
+          r2.__v.__k[0] = W(n2, n2.__c.__P, n2.__c.__O);
+        }
+        var t3;
+        for (r2.setState({ __a: r2.__b = null }); t3 = r2.o.pop(); ) t3.forceUpdate();
+      }
+    };
+    r2.__u++ || 32 & t2.__u || r2.setState({ __a: r2.__b = r2.__v.__k[0] }), n.then(i2, i2);
+  }, P.prototype.componentWillUnmount = function() {
+    this.o = [];
+  }, P.prototype.render = function(n, e2) {
+    if (this.__b) {
+      if (this.__v.__k) {
+        var r2 = document.createElement("div"), o2 = this.__v.__k[0].__c;
+        this.__v.__k[0] = V(this.__b, r2, o2.__O = o2.__P);
+      }
+      this.__b = null;
+    }
+    var i2 = e2.__a && preact.createElement(preact.Fragment, null, n.fallback);
+    return i2 && (i2.__u &= -33), [preact.createElement(preact.Fragment, null, e2.__a ? null : n.children), i2];
+  };
+  var H = function(n, t2, e2) {
+    if (++e2[1] === e2[0] && n.l.delete(t2), n.props.revealOrder && ("t" !== n.props.revealOrder[0] || !n.l.size)) for (e2 = n.i; e2; ) {
+      for (; e2.length > 3; ) e2.pop()();
+      if (e2[1] < e2[0]) break;
+      n.i = e2 = e2[2];
+    }
+  };
+  (B.prototype = new preact.Component()).__a = function(n) {
+    var t2 = this, e2 = j(t2.__v), r2 = t2.l.get(n);
+    return r2[0]++, function(u2) {
+      var o2 = function() {
+        t2.props.revealOrder ? (r2.push(u2), H(t2, n, r2)) : u2();
+      };
+      e2 ? e2(o2) : o2();
+    };
+  }, B.prototype.render = function(n) {
+    this.i = null, this.l = /* @__PURE__ */ new Map();
+    var t2 = preact.toChildArray(n.children);
+    n.revealOrder && "b" === n.revealOrder[0] && t2.reverse();
+    for (var e2 = t2.length; e2--; ) this.l.set(t2[e2], this.i = [1, 0, this.i]);
+    return n.children;
+  }, B.prototype.componentDidUpdate = B.prototype.componentDidMount = function() {
+    var n = this;
+    this.l.forEach(function(t2, e2) {
+      H(n, e2, t2);
+    });
+  };
+  var q = "undefined" != typeof Symbol && Symbol.for && Symbol.for("react.element") || 60103, G = /^(?:accent|alignment|arabic|baseline|cap|clip(?!PathU)|color|dominant|fill|flood|font|glyph(?!R)|horiz|image(!S)|letter|lighting|marker(?!H|W|U)|overline|paint|pointer|shape|stop|strikethrough|stroke|text(?!L)|transform|underline|unicode|units|v|vector|vert|word|writing|x(?!C))[A-Z]/, J = /^on(Ani|Tra|Tou|BeforeInp|Compo)/, K = /[A-Z0-9]/g, Q = "undefined" != typeof document, X = function(n) {
+    return ("undefined" != typeof Symbol && "symbol" == typeof Symbol() ? /fil|che|rad/ : /fil|che|ra/).test(n);
+  };
+  preact.Component.prototype.isReactComponent = {}, ["componentWillMount", "componentWillReceiveProps", "componentWillUpdate"].forEach(function(t2) {
+    Object.defineProperty(preact.Component.prototype, t2, { configurable: true, get: function() {
+      return this["UNSAFE_" + t2];
+    }, set: function(n) {
+      Object.defineProperty(this, t2, { configurable: true, writable: true, value: n });
+    } });
+  });
+  var en = preact.options.event;
+  function rn() {
+  }
+  function un() {
+    return this.cancelBubble;
+  }
+  function on() {
+    return this.defaultPrevented;
+  }
+  preact.options.event = function(n) {
+    return en && (n = en(n)), n.persist = rn, n.isPropagationStopped = un, n.isDefaultPrevented = on, n.nativeEvent = n;
+  };
+  var ln = { enumerable: false, configurable: true, get: function() {
+    return this.class;
+  } }, fn = preact.options.vnode;
+  preact.options.vnode = function(n) {
+    "string" == typeof n.type && function(n2) {
+      var t2 = n2.props, e2 = n2.type, u2 = {}, o2 = -1 === e2.indexOf("-");
+      for (var i2 in t2) {
+        var c2 = t2[i2];
+        if (!("value" === i2 && "defaultValue" in t2 && null == c2 || Q && "children" === i2 && "noscript" === e2 || "class" === i2 || "className" === i2)) {
+          var l2 = i2.toLowerCase();
+          "defaultValue" === i2 && "value" in t2 && null == t2.value ? i2 = "value" : "download" === i2 && true === c2 ? c2 = "" : "translate" === l2 && "no" === c2 ? c2 = false : "o" === l2[0] && "n" === l2[1] ? "ondoubleclick" === l2 ? i2 = "ondblclick" : "onchange" !== l2 || "input" !== e2 && "textarea" !== e2 || X(t2.type) ? "onfocus" === l2 ? i2 = "onfocusin" : "onblur" === l2 ? i2 = "onfocusout" : J.test(i2) && (i2 = l2) : l2 = i2 = "oninput" : o2 && G.test(i2) ? i2 = i2.replace(K, "-$&").toLowerCase() : null === c2 && (c2 = void 0), "oninput" === l2 && u2[i2 = l2] && (i2 = "oninputCapture"), u2[i2] = c2;
+        }
+      }
+      "select" == e2 && u2.multiple && Array.isArray(u2.value) && (u2.value = preact.toChildArray(t2.children).forEach(function(n3) {
+        n3.props.selected = -1 != u2.value.indexOf(n3.props.value);
+      })), "select" == e2 && null != u2.defaultValue && (u2.value = preact.toChildArray(t2.children).forEach(function(n3) {
+        n3.props.selected = u2.multiple ? -1 != u2.defaultValue.indexOf(n3.props.value) : u2.defaultValue == n3.props.value;
+      })), t2.class && !t2.className ? (u2.class = t2.class, Object.defineProperty(u2, "className", ln)) : (t2.className && !t2.class || t2.class && t2.className) && (u2.class = u2.className = t2.className), n2.props = u2;
+    }(n), n.$$typeof = q, fn && fn(n);
+  };
+  var an = preact.options.__r;
+  preact.options.__r = function(n) {
+    an && an(n), n.__c;
+  };
+  var sn = preact.options.diffed;
+  preact.options.diffed = function(n) {
+    sn && sn(n);
+    var t2 = n.props, e2 = n.__e;
+    null != e2 && "textarea" === n.type && "value" in t2 && t2.value !== e2.value && (e2.value = null == t2.value ? "" : t2.value);
+  };
+  const Tooltip = ({ content, children }) => {
+    const [isVisible, setIsVisible] = h(false);
+    return /* @__PURE__ */ u$1(
+      "div",
+      {
+        className: "jop-tooltip-container",
+        onMouseEnter: () => setIsVisible(true),
+        onMouseLeave: () => setIsVisible(false),
+        children: [
+          children,
+          isVisible && content && /* @__PURE__ */ u$1("div", { className: "jop-tooltip", children: content })
+        ]
+      }
+    );
+  };
+  const Checkbox = ({ label, value, tip, onChange }) => {
+    const handleChange = (event) => {
+      onChange(event.currentTarget.checked);
+    };
+    return /* @__PURE__ */ u$1("label", { className: "jop-checkbox", children: [
+      /* @__PURE__ */ u$1(
+        "input",
+        {
+          type: "checkbox",
+          className: "jop-checkbox-input",
+          checked: value,
+          onChange: handleChange
+        }
+      ),
+      /* @__PURE__ */ u$1("span", { className: "jop-checkbox-custom" }),
+      /* @__PURE__ */ u$1(Tooltip, { content: tip || "", children: /* @__PURE__ */ u$1("span", { className: "jop-checkbox-label", children: label }) })
+    ] });
+  };
+  const Setting = ({
+    siteList: siteList2,
+    setDisables,
+    disables,
+    multipleNavi,
+    setMultipleNavi,
+    hiddenError,
+    setHiddenError
+  }) => {
+    const [showSetting, setShowSetting] = h(false);
+    const hanleListChange = (item, isHidden) => {
+      if (isHidden) {
+        setDisables(disables.filter((disItem) => disItem !== item.name));
+      } else {
+        setDisables([...disables, item.name]);
+      }
+    };
+    const handleNaviChange = (checked) => {
+      setMultipleNavi(checked);
+      _GM_setValue("multipleNavi", checked);
+    };
+    const handlehiddenErrorChange = (checked) => {
+      setHiddenError(checked);
+      _GM_setValue("hiddenError", checked);
+    };
+    return /* @__PURE__ */ u$1(preact.Fragment, { children: [
+      !showSetting && /* @__PURE__ */ u$1("div", { className: "jop-button_def", onClick: () => setShowSetting(!showSetting), children: "设置" }),
+      showSetting && /* @__PURE__ */ u$1(preact.Fragment, { children: [
+        /* @__PURE__ */ u$1("div", { className: "jop-setting", children: [
+          /* @__PURE__ */ u$1(Group, { title: "勾选默认展示", children: siteList2.map((item) => {
+            const isHidden = disables.includes(item.name);
+            return /* @__PURE__ */ u$1(
+              Checkbox,
+              {
+                label: item.name,
+                value: !isHidden,
+                onChange: (checked) => hanleListChange(item, checked)
+              }
+            );
+          }) }),
+          /* @__PURE__ */ u$1(Group, { title: "其他设置", children: [
+            /* @__PURE__ */ u$1(
+              Checkbox,
+              {
+                label: "展示多个搜索结果",
+                value: multipleNavi,
+                tip: "一个站点内出现多条匹配结果时，打开后跳转搜索结果页",
+                onChange: handleNaviChange
+              }
+            ),
+            /* @__PURE__ */ u$1(
+              Checkbox,
+              {
+                label: "隐藏失败结果",
+                value: hiddenError,
+                onChange: handlehiddenErrorChange
+              }
+            )
+          ] })
+        ] }),
+        /* @__PURE__ */ u$1(
+          "div",
+          {
+            className: "jop-button_def",
+            onClick: () => {
+              setShowSetting(!showSetting);
+            },
+            children: "收起设置"
+          }
+        )
+      ] })
+    ] });
+  };
+  const Group = ({ title, children }) => {
+    return /* @__PURE__ */ u$1(preact.Fragment, { children: [
+      /* @__PURE__ */ u$1("h4", { className: "jop-setting-title", children: title }),
+      /* @__PURE__ */ u$1("div", { className: "jop-setting-list", children })
+    ] });
+  };
+  function videoPageParser(responseText, { subQuery, leakQuery, videoQuery }) {
+    const doc = new DOMParser().parseFromString(responseText, "text/html");
+    const subNode = subQuery ? doc.querySelector(subQuery) : "";
+    const subNodeText = subNode ? subNode.innerHTML : "";
+    const leakNode = leakQuery ? doc.querySelector(leakQuery) : null;
+    const leakNodeText = leakNode ? leakNode.innerHTML : "";
+    const videoNode = videoQuery ? doc.querySelector(videoQuery) : true;
+    return {
+      isSuccess: !!videoNode,
+      tag: tagsQuery({ leakageText: leakNodeText, subtitleText: subNodeText })
+    };
+  }
+  function searchPageCodeCheck(titleNodes, siteItem, CODE) {
+    if (!titleNodes || titleNodes.length === 0) return { isSuccess: false, titleNodeText: "" };
+    const codeRegex = /[a-zA-Z]{3,5}-\d{3,5}/;
+    if (siteItem.strictParser) {
+      const nodes = Array.from(titleNodes);
+      const passNodes = nodes.filter((node) => {
+        const nodeCode = node.outerHTML.match(codeRegex);
+        return isCaseInsensitiveEqual(nodeCode == null ? void 0 : nodeCode[0], CODE);
+      });
+      const titleNodeText = passNodes.map((node) => node.outerHTML).join(" ");
+      return {
+        titleNodeText,
+        isSuccess: passNodes.length > 0,
+        multipleRes: passNodes.length > 1
+      };
+    } else {
+      const titleNode = titleNodes[siteItem.domQuery.listIndex ?? 0];
+      const titleNodeText = titleNode ? titleNode == null ? void 0 : titleNode.outerHTML : "";
+      const matchCode = titleNodeText.match(codeRegex);
+      const isSuccess = isCaseInsensitiveEqual(matchCode == null ? void 0 : matchCode[0], CODE);
+      return { titleNodeText, isSuccess, multipleRes: titleNodes.length > 1 };
+    }
+  }
+  function serachPageParser(responseText, siteItem, CODE) {
+    const { linkQuery, titleQuery } = siteItem.domQuery;
+    const doc = new DOMParser().parseFromString(responseText, "text/html");
+    const titleNodes = titleQuery ? doc.querySelectorAll(titleQuery) : [];
+    const { isSuccess, titleNodeText, multipleRes } = searchPageCodeCheck(titleNodes, siteItem, CODE);
+    const linkNodes = linkQuery ? doc.querySelectorAll(linkQuery) : [];
+    const linkNode = linkNodes[siteItem.domQuery.listIndex ?? 0];
+    if (!isSuccess) {
+      return { isSuccess: false };
+    }
+    const resultLinkText = linkNode.href.replace(linkNode.hostname, siteItem.hostname);
+    return {
+      isSuccess: true,
+      resultLink: resultLinkText,
+      multipleRes,
+      tag: tagsQuery({ leakageText: titleNodeText, subtitleText: titleNodeText })
+    };
+  }
+  const baseFetcher = async ({ siteItem, targetLink, CODE }) => {
+    if (siteItem.fetchType === "false") {
+      return Promise.resolve({
+        isSuccess: true,
+        resultLink: targetLink
+      });
+    }
+    try {
+      const response = await gmGet({ url: targetLink });
+      if (isErrorCode(response.status)) {
+        throw Error(String(response.status));
+      }
+      if (siteItem.fetchType === "get") {
+        return {
+          resultLink: targetLink,
+          ...videoPageParser(response.responseText, siteItem.domQuery)
+        };
+      } else {
+        return {
+          ...serachPageParser(response.responseText, siteItem, CODE)
+        };
+      }
+    } catch (error) {
+      return {
+        isSuccess: false
+      };
+    }
+  };
+  const javbleFetcher = async (args) => {
+    const res = await baseFetcher(args);
+    if (res.isSuccess) return res;
+    const newLink = args.targetLink.slice(0, -1) + "-c/";
+    return await baseFetcher({ ...args, targetLink: newLink });
+  };
+  const fetcher = (args) => {
+    if (args.siteItem.name === "Jable") {
+      return javbleFetcher(args);
+    }
+    return baseFetcher(args);
+  };
+  const SiteBtn = ({ siteItem, CODE, multipleNavi, hiddenError }) => {
+    const { name, codeFormater } = siteItem;
+    const formatCode = codeFormater ? codeFormater(CODE) : CODE;
+    const originLink = siteItem.url.replace("{{code}}", formatCode);
+    const [loading, setLoading] = h(false);
+    const [fetchRes, setFetchRes] = h();
+    y(() => {
+      setLoading(true);
+      fetcher({ siteItem, targetLink: originLink, CODE: formatCode }).then((res) => {
+        setFetchRes(res);
+        setLoading(false);
+      });
+    }, [fetcher, siteItem, CODE, originLink]);
+    const multipleFlag = multipleNavi && (fetchRes == null ? void 0 : fetchRes.multipleRes);
+    const tag = multipleFlag ? "多结果" : fetchRes == null ? void 0 : fetchRes.tag;
+    const resultLink = multipleFlag ? originLink : fetchRes == null ? void 0 : fetchRes.resultLink;
+    const colorClass = (fetchRes == null ? void 0 : fetchRes.isSuccess) ? "jop-button_green " : "jop-button_red ";
+    if (hiddenError && !(fetchRes == null ? void 0 : fetchRes.isSuccess)) {
+      return /* @__PURE__ */ u$1(preact.Fragment, {});
+    }
+    return /* @__PURE__ */ u$1(
+      "a",
+      {
+        className: "jop-button " + (loading ? " " : colorClass),
+        target: "_blank",
+        href: !resultLink ? originLink : resultLink,
+        children: [
+          tag && /* @__PURE__ */ u$1("div", { className: "jop-button_label", children: tag }),
+          /* @__PURE__ */ u$1("span", { children: name })
+        ]
+      }
+    );
+  };
+  const App = M(function({ libItem, CODE }) {
+    const DEF_DIS = [
+      ...["AvJoy", "baihuse", "GGJAV", "AV01", "18sex", "highporn", "evojav", "HAYAV"],
+      ...["JavBus", "JavDB", "JAVLib", "MISSAV_", "123av", "javhub", "javgo", "JAVMENU"]
+    ];
+    const [disables, setDisables] = h(_GM_getValue("disable", DEF_DIS));
+    const [multipleNavi, setMultipleNavi] = h(_GM_getValue("multipleNavi", true));
+    const [hiddenError, setHiddenError] = h(_GM_getValue("hiddenError", false));
+    const list = siteList.filter(
+      (siteItem) => !disables.includes(siteItem.name) && !siteItem.hostname.includes(libItem.name)
+    );
+    return /* @__PURE__ */ u$1(preact.Fragment, { children: [
+      /* @__PURE__ */ u$1("div", { class: "jop-list", children: list.map((siteItem) => /* @__PURE__ */ u$1(
+        SiteBtn,
+        {
+          siteItem,
+          CODE,
+          multipleNavi,
+          hiddenError
+        },
+        siteItem.name
+      )) }),
+      /* @__PURE__ */ u$1(
+        Setting,
+        {
+          siteList,
+          setDisables: (disable) => {
+            setDisables(disable);
+            _GM_setValue("disable", disable);
+          },
+          multipleNavi,
+          setMultipleNavi: (multipleNavi2) => {
+            setMultipleNavi(multipleNavi2);
+            _GM_setValue("multipleNavi", multipleNavi2);
+          },
+          disables,
+          hiddenError,
+          setHiddenError: (v2) => {
+            setHiddenError(v2);
+            _GM_setValue("hiddenError", v2);
+          }
+        }
+      )
+    ] });
+  });
+  function main() {
+    const libItem = libSites.find((item) => document.querySelector(item.identifier));
+    if (!libItem) {
+      console.error("||jop 匹配站点失败");
+      return;
+    }
+    const CODE = getCode(libItem);
+    libItem.method();
+    const panel = document.querySelector(libItem.querys.panelQueryStr);
+    if (!panel) {
+      console.error("||jop 插入界面失败");
+      return;
+    }
+    const app = document.createElement("div");
+    app.classList.add("jop-app");
+    panel.append(app);
+    preact.render(/* @__PURE__ */ u$1(App, { libItem, CODE }), app);
+    console.log("||脚本挂载成功", CODE);
+  }
+  main();
+ 
+})(preact);
+    }
+
 
     // 多重启动策略确保兼容性
     function initScript() {
-        console.log('EMBY Checker: initScript 被调用, readyState=', document.readyState);
+        console.log('JavdbBuddy: initScript 被调用, readyState=', document.readyState);
         start();
         
         // 额外的延迟重试（针对动态加载的页面）
         setTimeout(() => {
-            console.log('EMBY Checker: 5秒后重新尝试初始化');
-            addMultiSiteSearchButtons();
+            console.log('JavdbBuddy: 5秒后重新尝试初始化');
             addOnlineWatchPanel();
             initCheck();
         }, 5000);
@@ -5244,26 +5332,26 @@
         () => {
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', () => {
-                    console.log('EMBY Checker: DOMContentLoaded 触发');
+                    console.log('JavdbBuddy: DOMContentLoaded 触发');
                     setTimeout(initScript, 100);
                 });
             }
         },
         () => {
             if (document.readyState === 'interactive') {
-                console.log('EMBY Checker: 页面处于 interactive 状态');
+                console.log('JavdbBuddy: 页面处于 interactive 状态');
                 setTimeout(initScript, 100);
             }
         },
         () => {
             window.addEventListener('load', () => {
-                console.log('EMBY Checker: window.load 触发');
+                console.log('JavdbBuddy: window.load 触发');
                 initScript();
             });
         },
         () => {
             if (document.readyState === 'complete') {
-                console.log('EMBY Checker: 页面已完全加载');
+                console.log('JavdbBuddy: 页面已完全加载');
                 initScript();
             }
         },
@@ -5272,14 +5360,14 @@
             let pollCount = 0;
             const pollInterval = setInterval(() => {
                 pollCount++;
-                console.log(`EMBY Checker: 轮询检查 #${pollCount}`);
+                console.log(`JavdbBuddy: 轮询检查 #${pollCount}`);
                 
                 if (document.body && document.querySelector('.video-meta-panel, .movie-panel-info')) {
-                    console.log('EMBY Checker: 轮询检测到页面元素，开始初始化');
+                    console.log('JavdbBuddy: 轮询检测到页面元素，开始初始化');
                     clearInterval(pollInterval);
                     initScript();
                 } else if (pollCount >= 20) {
-                    console.log('EMBY Checker: 轮询达到上限，强制初始化');
+                    console.log('JavdbBuddy: 轮询达到上限，强制初始化');
                     clearInterval(pollInterval);
                     initScript();
                 }
@@ -5288,23 +5376,23 @@
     ];
     
     // 执行所有启动方法
-    console.log('EMBY Checker: 开始执行所有启动方法');
+    console.log('JavdbBuddy: 开始执行所有启动方法');
     startupMethods.forEach((method, index) => {
         try {
             method();
         } catch(e) {
-            console.error(`EMBY Checker: 启动方法 ${index} 失败`, e);
+            console.error(`JavdbBuddy: 启动方法 ${index} 失败`, e);
         }
     });
     
     // 最后的兼容方案：直接延迟执行
-    console.log('EMBY Checker: 执行直接延迟启动');
+    console.log('JavdbBuddy: 执行直接延迟启动');
     setTimeout(() => {
-        console.log('EMBY Checker: 1秒后直接启动');
+        console.log('JavdbBuddy: 1秒后直接启动');
         initScript();
     }, 1000);
     setTimeout(() => {
-        console.log('EMBY Checker: 3秒后直接启动');
+        console.log('JavdbBuddy: 3秒后直接启动');
         initScript();
     }, 3000);
 
@@ -5317,21 +5405,19 @@
         clearTimeout(timer);
         timer = setTimeout(() => {
             initCheck();
-            
-            // 如果按钮还未添加成功，继续尝试
+
+            // 如果在线观看面板还未添加成功，继续尝试
             if (buttonAttempts < MAX_BUTTON_ATTEMPTS) {
-                const existingButton = document.querySelector('.javdb-search-panel');
-                if (!existingButton) {
-                    console.log(`EMBY Checker: 检测到 DOM 变化，第 ${buttonAttempts + 1} 次尝试添加按钮`);
-                    addMultiSiteSearchButtons();
+                const existingPanel = document.querySelector('.jop-app');
+                if (!existingPanel) {
+                    console.log(`JavdbBuddy: 检测到 DOM 变化，第 ${buttonAttempts + 1} 次尝试添加面板`);
                     addOnlineWatchPanel();
                     buttonAttempts++;
                 } else {
-                    console.log('EMBY Checker: 按钮已存在，停止尝试');
+                    console.log('JavdbBuddy: 在线观看面板已存在，停止尝试');
                     buttonAttempts = MAX_BUTTON_ATTEMPTS; // 停止尝试
                 }
             }
-            addOnlineWatchPanel();
         }, 300);
     });
     observer.observe(document.body, { childList: true, subtree: true });
@@ -5341,7 +5427,7 @@
     setInterval(() => {
         const currentConfigChangeTime = GM_getValue('emby_config_changed', 0);
         if (currentConfigChangeTime > lastConfigChangeTime) {
-            console.log('EMBY Checker: 检测到配置变更，重新检查所有标签');
+            console.log('JavdbBuddy: 检测到配置变更，重新检查所有标签');
             lastConfigChangeTime = currentConfigChangeTime;
             
             // 重新加载配置和索引
@@ -5363,23 +5449,23 @@
 
     // ==================== 双标签磁力链功能 ====================
     function addDualTabsForMagnets() {
-        console.log('EMBY Checker: addDualTabsForMagnets()函数被调用');
-        console.log('EMBY Checker: 当前URL:', window.location.href);
-        console.log('EMBY Checker: 当前路径:', window.location.pathname);
+        console.log('JavdbBuddy: addDualTabsForMagnets()函数被调用');
+        console.log('JavdbBuddy: 当前URL:', window.location.href);
+        console.log('JavdbBuddy: 当前路径:', window.location.pathname);
         try {
             // 只在详情页显示
             if (!window.location.pathname.startsWith('/v/')) {
-                console.log('EMBY Checker: 不是详情页，跳过添加双标签磁力链');
+                console.log('JavdbBuddy: 不是详情页，跳过添加双标签磁力链');
                 return;
             }
             
             // 防止重复添加
             if (document.querySelector('.javdb-dual-magnet-tabs')) {
-                console.log('EMBY Checker: 双标签磁力链已存在');
+                console.log('JavdbBuddy: 双标签磁力链已存在');
                 return;
             }
             
-            console.log('EMBY Checker: 开始添加双标签磁力链');
+            console.log('JavdbBuddy: 开始添加双标签磁力链');
             
             // 提取当前番号
             let videoCode = '';
@@ -5388,10 +5474,10 @@
                 videoCode = codeMatch[1].trim();
             }
             if (!videoCode) {
-                console.log('EMBY Checker: 无法提取番号，跳过磁力链双标签');
+                console.log('JavdbBuddy: 无法提取番号，跳过磁力链双标签');
                 return;
             }
-            console.log('EMBY Checker: 双标签磁力链，番号:', videoCode);
+            console.log('JavdbBuddy: 双标签磁力链，番号:', videoCode);
             
             // ====== [新增] 立即后台预加载 JAVBUS 磁力链 ======
             preloadJavbusData(videoCode);
@@ -5404,7 +5490,7 @@
                                     document.querySelector('.magnet-list');
             
             if (!magnetTabContent) {
-                console.log('EMBY Checker: 未找到磁力链容器');
+                console.log('JavdbBuddy: 未找到磁力链容器');
                 return;
             }
             
@@ -5576,7 +5662,7 @@
                 this.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
             });
             manualLoadBtn.addEventListener('click', function() {
-                console.log('EMBY Checker: 用户手动触发JAVBUS磁力链加载');
+                console.log('JavdbBuddy: 用户手动触发JAVBUS磁力链加载');
                 javbusMagnetsContainer.innerHTML = '<p>正在从JAVBUS加载磁力链...</p>';
                 javbusMagnetsContainer.style.display = 'block';
                 fetchJAVBUSMagnets(videoCode, javbusMagnetsContainer);
@@ -5634,33 +5720,28 @@
             const maxRetries = 3;
             
             function autoLoadJAVBUS() {
-                console.log('EMBY Checker: autoLoadJAVBUS()函数被调用');
-                console.log('EMBY Checker: 当前加载状态:', javbusMagnetsContainer.dataset.loaded);
-                console.log('EMBY Checker: 重试次数:', retryCount, '最大重试次数:', maxRetries);
-                console.log('EMBY Checker: 容器是否存在:', !!javbusMagnetsContainer);
-                console.log('EMBY Checker: 容器是否在DOM中:', document.body.contains(javbusMagnetsContainer));
+                console.log('JavdbBuddy: autoLoadJAVBUS()函数被调用');
+                console.log('JavdbBuddy: 当前加载状态:', javbusMagnetsContainer.dataset.loaded);
+                console.log('JavdbBuddy: 重试次数:', retryCount, '最大重试次数:', maxRetries);
+                console.log('JavdbBuddy: 容器是否存在:', !!javbusMagnetsContainer);
+                console.log('JavdbBuddy: 容器是否在DOM中:', document.body.contains(javbusMagnetsContainer));
                 
                 if (javbusMagnetsContainer.dataset.loaded === 'true') {
-                    console.log('EMBY Checker: JAVBUS磁力链数据已加载');
+                    console.log('JavdbBuddy: JAVBUS磁力链数据已加载');
                     return;
                 }
                 
                 if (retryCount >= maxRetries) {
-                    console.log('EMBY Checker: 自动加载JAVBUS磁力链失败，已达最大重试次数');
+                    console.log('JavdbBuddy: 自动加载JAVBUS磁力链失败，已达最大重试次数');
                     javbusMagnetsContainer.innerHTML = `
                         <div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
-                            <p style="font-weight: bold; margin-bottom: 10px;">JAVBUS磁力链自动加载失败</p>
-                            <p style="font-size: 12px; margin-bottom: 10px;">可能的原因：</p>
-                            <ul style="text-align: left; font-size: 12px; margin-bottom: 10px;">
-                                <li>网络连接问题</li>
-                                <li>JAVBUS网站需要登录</li>
-                                <li>网站结构已改变</li>
-                                <li>数据动态加载，需要JavaScript执行</li>
-                            </ul>
-                            <p style="font-size: 12px;">请尝试点击下方按钮手动加载</p>
+                            <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                            <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
                         </div>
                     `;
                     javbusMagnetsContainer.dataset.loaded = 'error';
+                    const badge = document.getElementById('javbus-magnet-badge');
+                    if (badge) { badge.textContent = '0'; badge.style.display = 'flex'; }
                     
                     // 显示手动加载按钮
                     if (manualLoadBtn) {
@@ -5669,9 +5750,9 @@
                     return;
                 }
                 
-                console.log(`EMBY Checker: 自动预加载JAVBUS磁力链数据（第${retryCount + 1}次尝试）`);
-                console.log('EMBY Checker: 番号:', videoCode);
-                console.log('EMBY Checker: 目标容器:', javbusMagnetsContainer.id);
+                console.log(`JavdbBuddy: 自动预加载JAVBUS磁力链数据（第${retryCount + 1}次尝试）`);
+                console.log('JavdbBuddy: 番号:', videoCode);
+                console.log('JavdbBuddy: 目标容器:', javbusMagnetsContainer.id);
                 
                 // 显示加载状态
                 javbusMagnetsContainer.innerHTML = `
@@ -5686,7 +5767,7 @@
             }
             
             // 首次加载：延迟2秒确保页面完全加载
-            console.log('EMBY Checker: 设置自动预加载，2秒后执行');
+            console.log('JavdbBuddy: 设置自动预加载，2秒后执行');
             setTimeout(autoLoadJAVBUS, 2000);
             
             // 设置加载状态为false
@@ -5694,12 +5775,12 @@
             
             // 如果失败，2秒后重试
             const retryInterval = setInterval(() => {
-                console.log('EMBY Checker: 重试检查，当前状态:', javbusMagnetsContainer.dataset.loaded, '重试次数:', retryCount);
+                console.log('JavdbBuddy: 重试检查，当前状态:', javbusMagnetsContainer.dataset.loaded, '重试次数:', retryCount);
                 if (javbusMagnetsContainer.dataset.loaded !== 'true' && javbusMagnetsContainer.dataset.loaded !== 'error' && retryCount < maxRetries) {
-                    console.log('EMBY Checker: 检测到加载失败，准备重试...');
+                    console.log('JavdbBuddy: 检测到加载失败，准备重试...');
                     setTimeout(autoLoadJAVBUS, 1000);
                 } else {
-                    console.log('EMBY Checker: 停止重试检查');
+                    console.log('JavdbBuddy: 停止重试检查');
                     clearInterval(retryInterval);
                 }
             }, 3000); // 每3秒检查一次
@@ -5716,7 +5797,7 @@
             let javdbLoadTimeout = null;
             function checkJAVDBLoadTimeout() {
                 if (magnetTabContent.textContent.includes('搜寻中')) {
-                    console.log('EMBY Checker: JAVDB磁力链加载超时，自动切换到JAVBUS');
+                    console.log('JavdbBuddy: JAVDB磁力链加载超时，自动切换到JAVBUS');
                     // 自动切换到JAVBUS标签
                     javbusTab.click();
                 }
@@ -5724,11 +5805,11 @@
             
             // 设置10秒后检查JAVDB磁力链是否加载超时
             javdbLoadTimeout = setTimeout(checkJAVDBLoadTimeout, 10000);
-            console.log('EMBY Checker: 设置JAVDB磁力链加载超时检查（10秒后）');
+            console.log('JavdbBuddy: 设置JAVDB磁力链加载超时检查（10秒后）');
             
             // 显示JAVBUS磁力链
             function showJAVBUSMagnets(code) {
-                console.log('EMBY Checker: showJAVBUSMagnets()函数被调用，番号:', code);
+                console.log('JavdbBuddy: showJAVBUSMagnets()函数被调用，番号:', code);
                 window.__dualMagnetHandling = true;
                 magnetTabContent.style.display = 'none';
                 javbusMagnetsContainer.style.display = 'block';
@@ -5736,7 +5817,7 @@
                 
                 // 如果已经通过 autoLoadJAVBUS 加载过，直接显示
                 if (javbusMagnetsContainer.dataset.loaded === 'true') {
-                    console.log('EMBY Checker: JAVBUS磁力链数据已加载，直接显示');
+                    console.log('JavdbBuddy: JAVBUS磁力链数据已加载，直接显示');
                     return;
                 }
                 
@@ -5752,9 +5833,23 @@
                     }
                     return;
                 }
+                // 缓存已标记为失败或空数据，直接显示“暂无数据”并显示角标 0
+                if (cached && (cached.status === 'error' || (cached.status === 'loaded' && (!cached.data || cached.data.length === 0)))) {
+                    javbusMagnetsContainer.innerHTML = `<div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
+                        <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                        <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
+                    </div>`;
+                    javbusMagnetsContainer.dataset.loaded = 'error';
+                    const badge = document.getElementById('javbus-magnet-badge');
+                    if (badge) {
+                        badge.textContent = '0';
+                        badge.style.display = 'flex';
+                    }
+                    return;
+                }
                 
                 // 缓存未命中或正在加载，不等预加载，直接请求
-                console.log('EMBY Checker: JAVBUS磁力链数据未加载，开始加载');
+                console.log('JavdbBuddy: JAVBUS磁力链数据未加载，开始加载');
                 javbusMagnetsContainer.innerHTML = '<p>正在从JAVBUS加载磁力链...</p>';
                 fetchJAVBUSMagnets(code, javbusMagnetsContainer);
             }
@@ -5779,17 +5874,17 @@
             const observer = new MutationObserver(updateJAVDBMagnetBadge);
             observer.observe(magnetTabContent, { childList: true, subtree: true });
             
-            console.log('EMBY Checker: 双标签磁力链已添加');
+            console.log('JavdbBuddy: 双标签磁力链已添加');
             
         } catch (error) {
-            console.error('EMBY Checker: 添加双标签磁力链失败:', error);
+            console.error('JavdbBuddy: 添加双标签磁力链失败:', error);
         }
     }
     
     // 从<script>标签中提取磁力链数据
     function extractMagnetDataFromScripts(htmlDoc) {
         const scripts = htmlDoc.querySelectorAll('script');
-        console.log('EMBY Checker: 检查脚本数量:', scripts.length);
+        console.log('JavdbBuddy: 检查脚本数量:', scripts.length);
         let magnetData = [];
         
         for (let script of scripts) {
@@ -5832,7 +5927,7 @@
                         }
                         
                         if (Array.isArray(magnetData) && magnetData.length > 0) {
-                            console.log('EMBY Checker: 从脚本中找到磁力链数据，模式:', pattern.toString());
+                            console.log('JavdbBuddy: 从脚本中找到磁力链数据，模式:', pattern.toString());
                             // 标准化数据格式
                             return magnetData.map(item => ({
                                 name: item.name || item.title || item.text || item.magnet_name || '未知',
@@ -5844,7 +5939,7 @@
                         }
                     } catch (e) {
                         // JSON解析失败，尝试下一个模式
-                        console.log('EMBY Checker: 解析失败，尝试下一个模式');
+                        console.log('JavdbBuddy: 解析失败，尝试下一个模式');
                     }
                 }
             }
@@ -5855,15 +5950,15 @@
     
     // 直接从HTML中提取磁力链接（备用方法）
     function extractMagnetsFromHTML(htmlDoc) {
-        console.log('EMBY Checker: 尝试直接从HTML中提取磁力链接');
+        console.log('JavdbBuddy: 尝试直接从HTML中提取磁力链接');
         const magnetLinks = [];
         
         // 查找所有包含magnet:的链接
         const allLinks = htmlDoc.querySelectorAll('a[href^="magnet:"]');
-        console.log('EMBY Checker: 找到', allLinks.length, '个磁力链接');
+        console.log('JavdbBuddy: 找到', allLinks.length, '个磁力链接');
         
         if (allLinks.length === 0) {
-            console.log('EMBY Checker: 未找到任何磁力链接，可能数据是动态加载的');
+            console.log('JavdbBuddy: 未找到任何磁力链接，可能数据是动态加载的');
             // 尝试查找可能包含磁力链接的元素
             const possibleContainers = [
                 htmlDoc.querySelector('.magnet-list'),
@@ -5875,10 +5970,10 @@
             
             for (let container of possibleContainers) {
                 if (container) {
-                    console.log('EMBY Checker: 找到可能的磁力链容器:', container.className, '内容长度:', container.innerHTML.length);
+                    console.log('JavdbBuddy: 找到可能的磁力链容器:', container.className, '内容长度:', container.innerHTML.length);
                     // 尝试在容器内查找磁力链接
                     const containerLinks = container.querySelectorAll('a[href^="magnet:"]');
-                    console.log('EMBY Checker: 容器内找到', containerLinks.length, '个磁力链接');
+                    console.log('JavdbBuddy: 容器内找到', containerLinks.length, '个磁力链接');
                 }
             }
         }
@@ -5887,7 +5982,7 @@
             const magnetUrl = link.href;
             let name = link.textContent.trim() || link.title || '磁力链接 ' + (index + 1);
             
-            console.log(`EMBY Checker: 磁力链接 ${index + 1}:`, name.substring(0, 50) + '...');
+            console.log(`JavdbBuddy: 磁力链接 ${index + 1}:`, name.substring(0, 50) + '...');
             
             // 尝试从父元素或兄弟元素中提取更多信息
             let size = '未知';
@@ -5916,7 +6011,7 @@
             });
         });
         
-        console.log('EMBY Checker: 从HTML提取完成，共', magnetLinks.length, '个磁力链接');
+        console.log('JavdbBuddy: 从HTML提取完成，共', magnetLinks.length, '个磁力链接');
         return magnetLinks;
     }
     
@@ -6148,7 +6243,7 @@
     // 处理JAVBUS年龄验证
     function passAgeVerification() {
         return new Promise((resolve) => {
-            console.log('EMBY Checker: 尝试通过JAVBUS年龄验证');
+            console.log('JavdbBuddy: 尝试通过JAVBUS年龄验证');
             
             // JAVBUS年龄验证机制：需要设置特定的cookie
             // 尝试多个可能的cookie组合
@@ -6170,13 +6265,13 @@
             
             function tryNextCookie() {
                 if (currentIndex >= cookieAttempts.length) {
-                    console.log('EMBY Checker: 所有cookie尝试完毕，年龄验证状态:', ageVerified ? '通过' : '未通过');
+                    console.log('JavdbBuddy: 所有cookie尝试完毕，年龄验证状态:', ageVerified ? '通过' : '未通过');
                     resolve(ageVerified);
                     return;
                 }
                 
                 const cookies = cookieAttempts[currentIndex];
-                console.log(`EMBY Checker: 尝试cookie组合 ${currentIndex + 1}/${cookieAttempts.length}:`, cookies);
+                console.log(`JavdbBuddy: 尝试cookie组合 ${currentIndex + 1}/${cookieAttempts.length}:`, cookies);
                 
                 // 使用一个简单的测试URL
                 const testUrl = 'https://www.javbus.com/SSIS-795';
@@ -6192,10 +6287,10 @@
                         'Cookie': cookies
                     },
                     onload: function(response) {
-                        console.log(`EMBY Checker: Cookie组合 ${currentIndex + 1} 响应状态:`, response.status);
+                        console.log(`JavdbBuddy: Cookie组合 ${currentIndex + 1} 响应状态:`, response.status);
                         
                         if (response.status !== 200) {
-                            console.log(`EMBY Checker: Cookie组合 ${currentIndex + 1} 响应状态码不是200，尝试下一个`);
+                            console.log(`JavdbBuddy: Cookie组合 ${currentIndex + 1} 响应状态码不是200，尝试下一个`);
                             currentIndex++;
                             tryNextCookie();
                             return;
@@ -6212,12 +6307,12 @@
                                              response.responseText.includes('magnet:') ||
                                              response.responseText.includes('torrent');
                         
-                        console.log(`EMBY Checker: Cookie组合 ${currentIndex + 1} 年龄验证内容:`, hasAgeVerify);
-                        console.log(`EMBY Checker: Cookie组合 ${currentIndex + 1} 磁力链内容:`, hasMagnetTable);
+                        console.log(`JavdbBuddy: Cookie组合 ${currentIndex + 1} 年龄验证内容:`, hasAgeVerify);
+                        console.log(`JavdbBuddy: Cookie组合 ${currentIndex + 1} 磁力链内容:`, hasMagnetTable);
                         
                         // 如果没有年龄验证内容或包含磁力链内容，认为年龄验证通过
                         if (!hasAgeVerify || hasMagnetTable) {
-                            console.log(`EMBY Checker: Cookie组合 ${currentIndex + 1} 年龄验证通过`);
+                            console.log(`JavdbBuddy: Cookie组合 ${currentIndex + 1} 年龄验证通过`);
                             ageVerified = true;
                             resolve(true);
                             return;
@@ -6228,12 +6323,12 @@
                         tryNextCookie();
                     },
                     onerror: function(error) {
-                        console.error(`EMBY Checker: Cookie组合 ${currentIndex + 1} 请求失败:`, error);
+                        console.error(`JavdbBuddy: Cookie组合 ${currentIndex + 1} 请求失败:`, error);
                         currentIndex++;
                         tryNextCookie();
                     },
                     ontimeout: function() {
-                        console.error(`EMBY Checker: Cookie组合 ${currentIndex + 1} 请求超时`);
+                        console.error(`JavdbBuddy: Cookie组合 ${currentIndex + 1} 请求超时`);
                         currentIndex++;
                         tryNextCookie();
                     }
@@ -6261,10 +6356,19 @@
         }
         
         const url = `https://www.javbus.com/${videoCode}`;
-        console.log('EMBY Checker: fetchJAVBUSMagnets()函数被调用');
-        console.log('EMBY Checker: 番号:', videoCode);
-        console.log('EMBY Checker: 容器ID:', container.id);
-        console.log('EMBY Checker: 正在获取JAVBUS磁力链:', url);
+        console.log('JavdbBuddy: fetchJAVBUSMagnets()函数被调用');
+        console.log('JavdbBuddy: 番号:', videoCode);
+        console.log('JavdbBuddy: 容器ID:', container.id);
+        console.log('JavdbBuddy: 正在获取JAVBUS磁力链:', url);
+        
+        // 角标更新辅助函数
+        function updateJavbusBadge(count) {
+            const badge = document.getElementById('javbus-magnet-badge');
+            if (badge) {
+                badge.textContent = count;
+                badge.style.display = 'flex';
+            }
+        }
         
         // 先显示加载中状态
         container.innerHTML = `
@@ -6275,7 +6379,7 @@
         `;
         
         // 获取JAVBUS页面
-        console.log('EMBY Checker: 开始发送GM_xmlhttpRequest请求到:', url);
+        console.log('JavdbBuddy: 开始发送GM_xmlhttpRequest请求到:', url);
         GM_xmlhttpRequest({
             method: 'GET',
             url: url,
@@ -6288,24 +6392,24 @@
             },
             timeout: 20000,
             onload: function(response) {
-                console.log('EMBY Checker: GM_xmlhttpRequest onload回调被调用，状态码:', response.status);
+                console.log('JavdbBuddy: GM_xmlhttpRequest onload回调被调用，状态码:', response.status);
                 try {
-                    console.log('EMBY Checker: JAVBUS页面获取成功，状态码:', response.status);
-                    console.log('EMBY Checker: HTML长度:', response.responseText.length);
+                    console.log('JavdbBuddy: JAVBUS页面获取成功，状态码:', response.status);
+                    console.log('JavdbBuddy: HTML长度:', response.responseText.length);
                     
                     if (response.status !== 200) {
-                        container.innerHTML = `<div style="text-align: center; padding: 20px; color: #dc3545; background: #fff3f3; border-radius: 4px;">
-                            <p style="font-weight: bold; margin-bottom: 10px;">❌ 获取JAVBUS页面失败</p>
-                            <p style="font-size: 12px;">HTTP状态码: ${response.status}</p>
-                            <p style="font-size: 11px; color: #666; margin-top: 10px;">请检查网络连接或稍后重试</p>
+                        container.innerHTML = `<div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
+                            <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                            <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
                         </div>`;
                         container.dataset.loaded = 'error';
+                        updateJavbusBadge(0);
                         return;
                     }
                     
                     // 解析HTML
                     const html = response.responseText;
-                    console.log('EMBY Checker: HTML内容前200字符:', html.substring(0, 200));
+                    console.log('JavdbBuddy: HTML内容前200字符:', html.substring(0, 200));
                     
                     // 提取 gid, uc, img 变量
                     const gidMatch = html.match(/var\s+gid\s*=\s*(\d+)\s*;/);
@@ -6316,11 +6420,11 @@
                         const gid = gidMatch[1];
                         const uc = ucMatch[1];
                         const img = imgMatch[1];
-                        console.log('EMBY Checker: 提取到变量 - gid:', gid, 'uc:', uc, 'img:', img);
+                        console.log('JavdbBuddy: 提取到变量 - gid:', gid, 'uc:', uc, 'img:', img);
                         
                         // 调用API获取磁力链数据
                         const apiUrl = `https://www.javbus.com/ajax/uncledatoolsbyajax.php?gid=${gid}&lang=zh&img=${encodeURIComponent(img)}&uc=${uc}`;
-                        console.log('EMBY Checker: 调用API:', apiUrl);
+                        console.log('JavdbBuddy: 调用API:', apiUrl);
                         
                         GM_xmlhttpRequest({
                             method: 'GET',
@@ -6335,18 +6439,19 @@
                             },
                             timeout: 15000,
                             onload: function(apiResponse) {
-                                console.log('EMBY Checker: API响应状态码:', apiResponse.status);
+                                console.log('JavdbBuddy: API响应状态码:', apiResponse.status);
                                 if (apiResponse.status !== 200) {
-                                    container.innerHTML = `<div style="text-align: center; padding: 20px; color: #dc3545; background: #fff3f3; border-radius: 4px;">
-                                        <p style="font-weight: bold; margin-bottom: 10px;">❌ 获取磁力链数据失败</p>
-                                        <p style="font-size: 12px;">API状态码: ${apiResponse.status}</p>
+                                    container.innerHTML = `<div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
+                                        <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                                        <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
                                     </div>`;
                                     container.dataset.loaded = 'error';
+                                    updateJavbusBadge(0);
                                     return;
                                 }
                                 
                                 const apiHtml = apiResponse.responseText;
-                                console.log('EMBY Checker: API返回HTML长度:', apiHtml.length);
+                                console.log('JavdbBuddy: API返回HTML长度:', apiHtml.length);
                                 
                                 // 解析API返回的HTML片段
                                 const parser = new DOMParser();
@@ -6388,7 +6493,7 @@
                                     }
                                 });
                                 
-                                console.log('EMBY Checker: 从API提取到磁力链数据数量:', magnetData.length);
+                                console.log('JavdbBuddy: 从API提取到磁力链数据数量:', magnetData.length);
                                 
                                 if (magnetData.length > 0) {
                                     // 对磁力链数据进行排序：有字幕的排在最前面
@@ -6412,83 +6517,79 @@
                                     }
                                 } else {
                                     container.innerHTML = `<div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
-                                        <p style="font-weight: bold; margin-bottom: 10px;">⚠️ 未找到磁力链数据</p>
-                                        <p style="font-size: 12px;">API返回的数据中没有磁力链接</p>
-                                        <p style="font-size: 11px; margin-top: 10px;">
-                                            <a href="${url}" target="_blank" style="color: #667eea;">🔗 点击查看JAVBUS原页面</a>
-                                        </p>
+                                        <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                                        <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
                                     </div>`;
                                     container.dataset.loaded = 'error';
-                                    
-                                    // 隐藏角标
-                                    const badge = document.getElementById('javbus-magnet-badge');
-                                    if (badge) {
-                                        badge.style.display = 'none';
-                                    }
+                                    updateJavbusBadge(0);
                                 }
                             },
                             onerror: function(error) {
-                                console.error('EMBY Checker: API请求失败:', error);
-                                container.innerHTML = `<div style="text-align: center; padding: 20px; color: #dc3545; background: #fff3f3; border-radius: 4px;">
-                                    <p style="font-weight: bold; margin-bottom: 10px;">❌ API请求失败</p>
-                                    <p style="font-size: 12px;">错误: ${error.toString()}</p>
+                                console.error('JavdbBuddy: API请求失败:', error);
+                                container.innerHTML = `<div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
+                                    <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                                    <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
                                 </div>`;
                                 container.dataset.loaded = 'error';
+                                updateJavbusBadge(0);
                             },
                             ontimeout: function() {
-                                console.error('EMBY Checker: API请求超时');
-                                container.innerHTML = `<div style="text-align: center; padding: 20px; color: #dc3545; background: #fff3f3; border-radius: 4px;">
-                                    <p style="font-weight: bold; margin-bottom: 10px;">❌ API请求超时</p>
-                                    <p style="font-size: 12px;">连接超时，请稍后重试</p>
+                                console.error('JavdbBuddy: API请求超时');
+                                container.innerHTML = `<div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
+                                    <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                                    <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
                                 </div>`;
                                 container.dataset.loaded = 'error';
+                                updateJavbusBadge(0);
                             }
                         });
                         
                     } else {
-                        console.warn('EMBY Checker: 无法提取gid/uc/img，回退到HTML解析');
+                        console.warn('JavdbBuddy: 无法提取gid/uc/img，回退到HTML解析');
                         // 回退到原有的HTML解析逻辑
                         fallbackParseMagnetsFromHTML(html, url, container);
                     }
                     
                 } catch (error) {
-                    console.error('EMBY Checker: 解析JAVBUS页面失败:', error);
-                    container.innerHTML = `<div style="text-align: center; padding: 20px; color: #dc3545; background: #fff3f3; border-radius: 4px;">
-                        <p style="font-weight: bold; margin-bottom: 10px;">❌ 解析页面失败</p>
-                        <p style="font-size: 12px;">错误: ${error.message}</p>
+                    console.error('JavdbBuddy: 解析JAVBUS页面失败:', error);
+                    container.innerHTML = `<div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
+                        <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                        <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
                     </div>`;
                     container.dataset.loaded = 'error';
+                    updateJavbusBadge(0);
                 }
             },
             onerror: function(error) {
-                console.error('EMBY Checker: 获取JAVBUS页面失败:', error);
-                container.innerHTML = `<div style="text-align: center; padding: 20px; color: #dc3545; background: #fff3f3; border-radius: 4px;">
-                    <p style="font-weight: bold; margin-bottom: 10px;">❌ 无法连接到JAVBUS</p>
-                    <p style="font-size: 12px;">请检查网络连接或VPN设置</p>
-                    <p style="font-size: 11px; margin-top: 10px;">错误详情: ${error.toString()}</p>
+                console.error('JavdbBuddy: 获取JAVBUS页面失败:', error);
+                container.innerHTML = `<div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
+                    <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                    <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
                 </div>`;
                 container.dataset.loaded = 'error';
+                updateJavbusBadge(0);
             },
             ontimeout: function() {
-                console.error('EMBY Checker: 获取JAVBUS页面超时');
-                container.innerHTML = `<div style="text-align: center; padding: 20px; color: #dc3545; background: #fff3f3; border-radius: 4px;">
-                    <p style="font-weight: bold; margin-bottom: 10px;">❌ 连接超时</p>
-                    <p style="font-size: 12px;">连接JAVBUS超时（20秒），请稍后重试</p>
+                console.error('JavdbBuddy: 获取JAVBUS页面超时');
+                container.innerHTML = `<div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
+                    <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                    <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
                 </div>`;
                 container.dataset.loaded = 'error';
+                updateJavbusBadge(0);
             }
         });
         
         // 添加一个超时检查，如果请求长时间没有响应，显示错误
         setTimeout(() => {
             if (!container.dataset.loaded || container.dataset.loaded === 'false') {
-                console.error('EMBY Checker: GM_xmlhttpRequest请求长时间未响应，可能被阻止');
-                container.innerHTML = `<div style="text-align: center; padding: 20px; color: #dc3545; background: #fff3f3; border-radius: 4px;">
-                    <p style="font-weight: bold; margin-bottom: 10px;">❌ 请求超时</p>
-                    <p style="font-size: 12px;">JAVBUS页面请求超时（30秒），可能被网络阻止</p>
-                    <p style="font-size: 11px; margin-top: 10px;">请检查VPN设置或稍后重试</p>
+                console.error('JavdbBuddy: GM_xmlhttpRequest请求长时间未响应，可能被阻止');
+                container.innerHTML = `<div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
+                    <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                    <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
                 </div>`;
                 container.dataset.loaded = 'error';
+                updateJavbusBadge(0);
             }
         }, 30000);
     }
@@ -6500,23 +6601,17 @@
         
         // 直接从HTML中提取磁力链数据
         const magnetLinks = doc.querySelectorAll('a[href^="magnet:"]');
-        console.log('EMBY Checker: 回退解析 - 找到磁力链接数量:', magnetLinks.length);
+        console.log('JavdbBuddy: 回退解析 - 找到磁力链接数量:', magnetLinks.length);
         
         if (magnetLinks.length === 0) {
-            console.error('EMBY Checker: 回退解析 - 未找到任何磁力链接');
+            console.error('JavdbBuddy: 回退解析 - 未找到任何磁力链接');
             container.innerHTML = `<div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
-                <p style="font-weight: bold; margin-bottom: 10px;">⚠️ 未找到磁力链数据</p>
-                <p style="font-size: 12px; margin-bottom: 10px;">可能的原因：</p>
-                <ul style="text-align: left; font-size: 11px; color: #666; margin-left: 20px;">
-                    <li>该番号在JAVBUS上不存在磁力链</li>
-                    <li>JAVBUS页面需要登录查看</li>
-                    <li>网络被阻止或VPN问题</li>
-                </ul>
-                <p style="font-size: 11px; margin-top: 10px;">
-                    <a href="${url}" target="_blank" style="color: #667eea;">🔗 点击查看JAVBUS原页面</a>
-                </p>
+                <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
             </div>`;
             container.dataset.loaded = 'error';
+            const badge = document.getElementById('javbus-magnet-badge');
+            if (badge) { badge.textContent = '0'; badge.style.display = 'flex'; }
             return;
         }
         
@@ -6555,7 +6650,7 @@
             }
         }
         
-        console.log('EMBY Checker: 回退解析 - 提取到磁力链数据数量:', magnetData.length);
+        console.log('JavdbBuddy: 回退解析 - 提取到磁力链数据数量:', magnetData.length);
         
         if (magnetData.length > 0) {
             // 对磁力链数据进行排序：有字幕的排在最前面
@@ -6576,23 +6671,16 @@
             }
         } else {
             container.innerHTML = `<div style="text-align: center; padding: 20px; color: #666; background: #f8f9fa; border-radius: 4px;">
-                <p style="font-weight: bold; margin-bottom: 10px;">⚠️ 未找到磁力链数据</p>
-                <p style="font-size: 12px; margin-bottom: 10px;">可能的原因：</p>
-                <ul style="text-align: left; font-size: 11px; color: #666; margin-left: 20px;">
-                    <li>该番号在JAVBUS上不存在磁力链</li>
-                    <li>JAVBUS页面结构已改变</li>
-                    <li>数据需要登录后查看</li>
-                </ul>
-                <p style="font-size: 11px; margin-top: 10px;">
-                    <a href="${url}" target="_blank" style="color: #667eea;">🔗 点击查看JAVBUS原页面</a>
-                </p>
+                <p style="font-weight: bold; margin-bottom: 8px;">暂无数据</p>
+                <p style="font-size: 12px;">JAVBUS 未收录该影片或暂无可用的磁力链</p>
             </div>`;
             container.dataset.loaded = 'error';
             
-            // 隐藏角标
+            // 显示角标 0
             const badge = document.getElementById('javbus-magnet-badge');
             if (badge) {
-                badge.style.display = 'none';
+                badge.textContent = '0';
+                badge.style.display = 'flex';
             }
         }
     }
@@ -6601,24 +6689,24 @@
     addDualTabsForMagnets();
 
     // ================================================================
-    // ========== JAV-JHS 增强功能模块 ==========
-    const JHS_API_BASE = 'https://jdforrepam.com/api';
+    // ========== JavdbBuddy 增强功能模块 ==========
+    const JB_API_BASE = 'https://jdforrepam.com/api';
 
-    // 照搬 JAV-JHS 的签名函数：使用外部库 blueimp-md5（通过 @require 加载）
-    function jhsBuildSignature() {
+    // 照搬 JavdbBuddy 的签名函数：使用外部库 blueimp-md5（通过 @require 加载）
+    function jbBuildSignature() {
         const curr = Math.floor(Date.now() / 1000);
-        const stored = localStorage.getItem('jhs_jdsignature');
+        const stored = localStorage.getItem('jb_jdsignature');
         if (stored) {
             const parts = stored.split('.');
             if (parts.length === 3 && (curr - parseInt(parts[0])) <= 300) return stored;
         }
         const sign = `${curr}.lpw6vgqzsp.${md5(`${curr}71cf27bb3c0bcdf207b64abecddc970098c7421ee7203b9cdae54478478a199e7d5a6e1a57691123c1a931c057842fb73ba3b3c83bcd69c17ccf174081e3d8aa`)}`;
-        localStorage.setItem('jhs_jdsignature', sign);
+        localStorage.setItem('jb_jdsignature', sign);
         return sign;
     }
 
-    // 照搬 JAV-JHS 的 gmRequest：只检查 HTTP 状态码，不检查 data.success，带3次重试
-    function jhsApiGetOnce(url, params, headers) {
+    // 照搬 JavdbBuddy 的 gmRequest：只检查 HTTP 状态码，不检查 data.success，带3次重试
+    function jbApiGetOnce(url, params, headers) {
         return new Promise((resolve, reject) => {
             let fullUrl = url;
             if (params && Object.keys(params).length) {
@@ -6659,11 +6747,11 @@
             });
         });
     }
-    async function jhsApiGet(url, params, headers) {
+    async function jbApiGet(url, params, headers) {
         let lastError;
         for (let i = 0; i < 3; i++) {
             try {
-                return await jhsApiGetOnce(url, params, headers);
+                return await jbApiGetOnce(url, params, headers);
             } catch (e) {
                 lastError = e;
                 if (i < 2) await new Promise(r => setTimeout(r, 500));
@@ -6672,48 +6760,48 @@
         throw lastError;
     }
 
-    // JHS API 接口
-    const jhsApi = {
+    // 外部API 接口
+    const jbApi = {
         // 获取热播排行
         async playback(period = 'daily', filterBy = 'high_score') {
-            const sign = await jhsBuildSignature();
-            const url = `${JHS_API_BASE}/v1/rankings/playback?period=${period}&filter_by=${filterBy}`;
-            const res = await jhsApiGet(url, null, { jdSignature: sign });
+            const sign = await jbBuildSignature();
+            const url = `${JB_API_BASE}/v1/rankings/playback?period=${period}&filter_by=${filterBy}`;
+            const res = await jbApiGet(url, null, { jdSignature: sign });
             return res.data?.movies || [];
         },
         // 获取 Top250
         async top250(type = 'all', typeValue = '', page = 1, limit = 40) {
-            const sign = await jhsBuildSignature();
-            const url = `${JHS_API_BASE}/v1/movies/top?start_rank=1&type=${type}&type_value=${encodeURIComponent(typeValue)}&ignore_watched=false&page=${page}&limit=${limit}`;
-            const res = await jhsApiGet(url, null, {
+            const sign = await jbBuildSignature();
+            const url = `${JB_API_BASE}/v1/movies/top?start_rank=1&type=${type}&type_value=${encodeURIComponent(typeValue)}&ignore_watched=false&page=${page}&limit=${limit}`;
+            const res = await jbApiGet(url, null, {
                 'user-agent': 'Dart/3.5 (dart:io)',
                 'accept-language': 'zh-TW',
                 'host': 'jdforrepam.com',
-                authorization: 'Bearer ' + (localStorage.getItem('jhs_appAuthorization') || ''),
+                authorization: 'Bearer ' + (localStorage.getItem('jb_appAuthorization') || ''),
                 jdsignature: sign
             });
             return res;
         },
-        // 获取所有评论（分页）—— 照搬 JAV-JHS：只发 jdSignature，不发 authorization
+        // 获取所有评论（分页）—— 照搬 JavdbBuddy：只发 jdSignature，不发 authorization
         async getReviews(movieId, pageNum = 1, pageSize = 20) {
-            const sign = await jhsBuildSignature();
-            const url = `${JHS_API_BASE}/v1/movies/${movieId}/reviews`;
-            console.log('%c[JHS] getReviews 请求:', 'color:#9b59b6;', url, 'movieId:', movieId, 'sign:', sign);
-            const res = await jhsApiGet(url, { page: pageNum, sort_by: 'hotly', limit: pageSize }, {
+            const sign = await jbBuildSignature();
+            const url = `${JB_API_BASE}/v1/movies/${movieId}/reviews`;
+            console.log('%c[JB] getReviews 请求:', 'color:#9b59b6;', url, 'movieId:', movieId, 'sign:', sign);
+            const res = await jbApiGet(url, { page: pageNum, sort_by: 'hotly', limit: pageSize }, {
                 jdSignature: sign
             });
-            console.log('%c[JHS] getReviews 响应:', 'color:#9b59b6;', res);
+            console.log('%c[JB] getReviews 响应:', 'color:#9b59b6;', res);
             return res.data?.reviews || [];
         },
-        // 获取相关清单 —— 照搬 JAV-JHS：只发 jdSignature，不发 authorization
+        // 获取相关清单 —— 照搬 JavdbBuddy：只发 jdSignature，不发 authorization
         async related(movieId, page = 1, limit = 20) {
-            const sign = await jhsBuildSignature();
-            const url = `${JHS_API_BASE}/v1/lists/related?movie_id=${movieId}&page=${page}&limit=${limit}`;
-            console.log('%c[JHS] related 请求:', 'color:#9b59b6;', url, 'movieId:', movieId, 'sign:', sign);
-            const res = await jhsApiGet(url, null, {
+            const sign = await jbBuildSignature();
+            const url = `${JB_API_BASE}/v1/lists/related?movie_id=${movieId}&page=${page}&limit=${limit}`;
+            console.log('%c[JB] related 请求:', 'color:#9b59b6;', url, 'movieId:', movieId, 'sign:', sign);
+            const res = await jbApiGet(url, null, {
                 jdSignature: sign
             });
-            console.log('%c[JHS] related 响应:', 'color:#9b59b6;', res);
+            console.log('%c[JB] related 响应:', 'color:#9b59b6;', res);
             const dataList = [];
             if (res.data?.lists) {
                 res.data.lists.forEach(item => {
@@ -6731,9 +6819,9 @@
         },
         // 搜索影片（用于获取 movieId）
         async searchMovie(keyword) {
-            const sign = await jhsBuildSignature();
-            const url = `${JHS_API_BASE}/v2/search`;
-            const res = await jhsApiGet(url, {
+            const sign = await jbBuildSignature();
+            const url = `${JB_API_BASE}/v2/search`;
+            const res = await jbApiGet(url, {
                 q: keyword, page: 1, type: 'movie', limit: 1,
                 movie_type: 'all', from_recent: 'false', movie_filter_by: 'all', movie_sort_by: 'relevance'
             }, {
@@ -6746,9 +6834,9 @@
         },
         // 获取影片详情
         async getMovieDetail(movieId) {
-            const sign = await jhsBuildSignature();
-            const url = `${JHS_API_BASE}/v4/movies/${movieId}`;
-            const res = await jhsApiGet(url, null, { jdSignature: sign });
+            const sign = await jbBuildSignature();
+            const url = `${JB_API_BASE}/v4/movies/${movieId}`;
+            const res = await jbApiGet(url, null, { jdSignature: sign });
             if (!res.data) throw new Error(res.message || '获取详情失败');
             const movie = res.data.movie;
             const imgList = [];
@@ -6792,52 +6880,10 @@
         }
     };
 
-    // ---------- 导航栏增强 ----------
-    function jhsAddNavigation() {
-        const navbarEnd = document.querySelector('.navbar-end, .navbar-menu .navbar-end');
-        if (!navbarEnd) return;
 
-        // 避免重复添加
-        if (document.querySelector('.jhs-nav-item')) return;
-
-        // 添加设置按钮
-        const settingsBtn = document.createElement('a');
-        settingsBtn.className = 'navbar-item jhs-nav-item';
-        settingsBtn.id = 'jhs-nav-settings';
-        settingsBtn.href = 'javascript:void(0);';
-        settingsBtn.innerHTML = `<span style="font-weight:bold;color:#3498db;">⚙️ 设置</span>`;
-        settingsBtn.style.cssText = 'padding: 0.5rem 0.75rem; font-size: 14px;';
-        settingsBtn.onclick = (e) => {
-            e.preventDefault();
-            if (typeof showSettingsDialog === 'function') {
-                showSettingsDialog();
-            }
-        };
-
-        // 插入到 navbar-end 的第一个子元素之前（即"跟随系统"左侧）
-        const firstChild = navbarEnd.firstElementChild;
-        if (firstChild) {
-            navbarEnd.insertBefore(settingsBtn, firstChild);
-        } else {
-            navbarEnd.appendChild(settingsBtn);
-        }
-
-        // Hook 网站原有导航按钮补充处理（MutationObserver 已在 document-start 处理了 href 重定向）
-        jhsHookOriginalNavButtons();
-    }
-
-    // Hook 网站原有的导航按钮补充处理（仅处理 MutationObserver 覆盖不到的部分）
-    function jhsHookOriginalNavButtons() {
-        // 1. "猜你喜歡" tab 替换为 Top250（照搬 JAV-JHS）
-        document.querySelectorAll('.main-tabs ul li, .tabs ul li').forEach(li => {
-            if (li.textContent.includes('猜你喜歡') || li.textContent.includes('猜你喜欢')) {
-                li.innerHTML = `<a href="${JHS_TOP_URL}"><span>Top250</span></a>`;
-            }
-        });
-    }
 
     // ---------- 免VIP查看热播（原网页方式） ----------
-    async function jhsHandlePlaybackPage() {
+    async function jbHandlePlaybackPage() {
         if (!window.location.href.includes('handlePlayback=1')) return;
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -6855,7 +6901,7 @@
         document.querySelectorAll('.empty-message, .section .container > .box, #sort-toggle-btn').forEach(el => el.remove());
 
         const container = document.querySelector('.section .container');
-        if (!container || document.querySelector('.jhs-playback-loaded')) return;
+        if (!container || document.querySelector('.jb-playback-loaded')) return;
 
         // 添加筛选按钮
         const periodNames = { daily: '日榜', weekly: '周榜', monthly: '月榜' };
@@ -6867,26 +6913,26 @@
         btnHtml += '</div>';
         container.insertAdjacentHTML('beforeend', btnHtml);
 
-        // 添加电影列表容器（使用 javdb 原生的 movie-list 布局，和 JAV-JHS 一致）
-        container.insertAdjacentHTML('beforeend', '<div class="movie-list h cols-4 vcols-8 jhs-playback-loaded" style="margin-top:10px;"><div style="text-align:center;padding:40px;color:#999;grid-column:1/-1;">正在加载热播数据...</div></div>');
+        // 添加电影列表容器（使用 javdb 原生的 movie-list 布局，和 JavdbBuddy 一致）
+        container.insertAdjacentHTML('beforeend', '<div class="movie-list h cols-4 vcols-8 jb-playback-loaded" style="margin-top:10px;"><div style="text-align:center;padding:40px;color:#999;grid-column:1/-1;">正在加载热播数据...</div></div>');
 
         try {
-            const movies = await jhsApi.playback(period);
-            const gridEl = container.querySelector('.movie-list.jhs-playback-loaded');
+            const movies = await jbApi.playback(period);
+            const gridEl = container.querySelector('.movie-list.jb-playback-loaded');
             if (!gridEl) return;
             if (movies.length === 0) {
                 gridEl.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">暂无数据</div>';
                 return;
             }
-            gridEl.innerHTML = jhsApi.renderMovieListHtml(movies);
+            gridEl.innerHTML = jbApi.renderMovieListHtml(movies);
         } catch (e) {
-            const gridEl = container.querySelector('.movie-list.jhs-playback-loaded');
+            const gridEl = container.querySelector('.movie-list.jb-playback-loaded');
             if (gridEl) gridEl.innerHTML = `<div style="text-align:center;padding:40px;color:#e74c3c;">加载失败: ${e.message}<br><small>请检查网络连接后重试</small></div>`;
         }
     }
 
     // ---------- Top250 排行榜（原网页方式） ----------
-    async function jhsHandleTop250Page() {
+    async function jbHandleTop250Page() {
         if (!window.location.href.includes('handleTop=1')) return;
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -6895,19 +6941,19 @@
         const page = parseInt(urlParams.get('page')) || 1;
 
         // 检查是否需要登录，无 token 时先尝试自动登录
-        if (!localStorage.getItem('jhs_appAuthorization')) {
+        if (!localStorage.getItem('jb_appAuthorization')) {
             const container = document.querySelector('.section .container');
             if (container) {
                 container.innerHTML = '<div style="text-align:center;padding:60px;color:#999;font-size:15px;">🔐 Top250 需要登录<br><small style="color:#aaa;">正在尝试自动登录...</small></div>';
             }
-            console.log('[JHS] Token 不存在，尝试自动登录...');
+            console.log('[JB] Token 不存在，尝试自动登录...');
             (async () => {
-                const ok = await jhsAutoLogin();
-                console.log('[JHS] 自动登录结果:', ok);
+                const ok = await jbAutoLogin();
+                console.log('[JB] 自动登录结果:', ok);
                 if (ok) {
                     window.location.reload();
                 } else {
-                    jhsShowLoginDialog();
+                    jbShowLoginDialog();
                 }
             })();
             return;
@@ -6925,7 +6971,7 @@
         document.querySelectorAll('.empty-message, .section .container > .box, #sort-toggle-btn').forEach(el => el.remove());
 
         const container = document.querySelector('.section .container');
-        if (!container || document.querySelector('.jhs-top250-loaded')) return;
+        if (!container || document.querySelector('.jb-top250-loaded')) return;
 
         // 添加筛选按钮
         const typeBtns = [
@@ -6949,8 +6995,8 @@
         btnHtml += '</div>';
         container.insertAdjacentHTML('beforeend', btnHtml);
 
-        // 添加电影列表容器（使用 javdb 原生的 movie-list 布局，和 JAV-JHS 一致）
-        container.insertAdjacentHTML('beforeend', '<div class="movie-list h cols-4 vcols-8 jhs-top250-loaded" style="margin-top:10px;"><div style="text-align:center;padding:40px;color:#999;grid-column:1/-1;">正在加载 Top250 数据...</div></div>');
+        // 添加电影列表容器（使用 javdb 原生的 movie-list 布局，和 JavdbBuddy 一致）
+        container.insertAdjacentHTML('beforeend', '<div class="movie-list h cols-4 vcols-8 jb-top250-loaded" style="margin-top:10px;"><div style="text-align:center;padding:40px;color:#999;grid-column:1/-1;">正在加载 Top250 数据...</div></div>');
 
         // 添加分页
         const maxPage = 5;
@@ -6972,49 +7018,49 @@
 
         // 请求数据
         try {
-            const res = await jhsApi.top250(handleType, typeValue, page, 50);
-            const gridEl = container.querySelector('.movie-list.jhs-top250-loaded');
+            const res = await jbApi.top250(handleType, typeValue, page, 50);
+            const gridEl = container.querySelector('.movie-list.jb-top250-loaded');
             if (!gridEl) return;
 
             if (res.success === 1 && res.data?.movies?.length > 0) {
-                gridEl.innerHTML = jhsApi.renderMovieListHtml(res.data.movies);
+                gridEl.innerHTML = jbApi.renderMovieListHtml(res.data.movies);
             } else {
                 const msg = res.message || '暂无数据';
                 gridEl.innerHTML = `<div style="text-align:center;padding:40px;color:#999;grid-column:1/-1;">${msg}</div>`;
                 // JWT 验证失败，先尝试自动登录，失败再弹窗
                 if (res.action === 'JWTVerificationError') {
-                    localStorage.removeItem('jhs_appAuthorization');
+                    localStorage.removeItem('jb_appAuthorization');
                     gridEl.innerHTML = '<div style="text-align:center;padding:40px;color:#999;grid-column:1/-1;">登录已过期，正在尝试自动登录...</div>';
                     (async () => {
-                        const ok = await jhsAutoLogin();
+                        const ok = await jbAutoLogin();
                         if (ok) {
                             window.location.reload();
                         } else {
-                            jhsShowLoginDialog(true);
+                            jbShowLoginDialog(true);
                         }
                     })();
                     return;
                 }
             }
         } catch (e) {
-            const gridEl = container.querySelector('.movie-list.jhs-top250-loaded');
+            const gridEl = container.querySelector('.movie-list.jb-top250-loaded');
             if (gridEl) gridEl.innerHTML = `<div style="text-align:center;padding:40px;color:#e74c3c;">加载失败: ${e.message}</div>`;
         }
     }
 
     // ---------- 自动登录 ----------
-    async function jhsAutoLogin() {
-        const savedUser = localStorage.getItem('jhs_saved_username');
-        const savedPass = localStorage.getItem('jhs_saved_password');
+    async function jbAutoLogin() {
+        const savedUser = localStorage.getItem('jb_saved_username');
+        const savedPass = localStorage.getItem('jb_saved_password');
         if (!savedUser || !savedPass) {
-            console.log('[JHS] 没有保存的账号密码，无法自动登录');
+            console.log('[JB] 没有保存的账号密码，无法自动登录');
             return false;
         }
 
-        console.log('[JHS] 正在用保存的账号自动登录:', savedUser);
+        console.log('[JB] 正在用保存的账号自动登录:', savedUser);
         try {
-            const sign = jhsBuildSignature();
-            const loginUrl = `${JHS_API_BASE}/v1/sessions?username=${encodeURIComponent(savedUser)}&password=${encodeURIComponent(savedPass)}&device_uuid=04b9534d-5118-53de-9f87-2ddded77111e&device_name=iPhone&device_model=iPhone&platform=ios&system_version=17.4&app_version=official&app_version_number=1.9.29&app_channel=official`;
+            const sign = jbBuildSignature();
+            const loginUrl = `${JB_API_BASE}/v1/sessions?username=${encodeURIComponent(savedUser)}&password=${encodeURIComponent(savedPass)}&device_uuid=04b9534d-5118-53de-9f87-2ddded77111e&device_name=iPhone&device_model=iPhone&platform=ios&system_version=17.4&app_version=official&app_version_number=1.9.29&app_channel=official`;
             const res = await new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
                     method: 'POST',
@@ -7027,7 +7073,7 @@
                     },
                     timeout: 15000,
                     onload: (resp) => {
-                        console.log('[JHS] 登录接口响应状态:', resp.status);
+                        console.log('[JB] 登录接口响应状态:', resp.status);
                         try { resolve(JSON.parse(resp.responseText)); }
                         catch (e) { reject(new Error('解析响应失败: ' + (resp.responseText || '').substring(0, 200))); }
                     },
@@ -7036,22 +7082,22 @@
                 });
             });
 
-            console.log('[JHS] 登录接口返回:', res);
+            console.log('[JB] 登录接口返回:', res);
             if (res.success === 1 && res.data?.token) {
-                localStorage.setItem('jhs_appAuthorization', res.data.token);
-                console.log('[JHS] 自动登录成功');
+                localStorage.setItem('jb_appAuthorization', res.data.token);
+                console.log('[JB] 自动登录成功');
                 return true;
             } else {
-                console.log('[JHS] 自动登录失败:', res.message || '未知错误');
+                console.log('[JB] 自动登录失败:', res.message || '未知错误');
             }
         } catch (e) {
-            console.error('[JHS] 自动登录异常:', e);
+            console.error('[JB] 自动登录异常:', e);
         }
         return false;
     }
 
     // ---------- Top250 登录对话框 ----------
-    function jhsShowLoginDialog(autoLoginFailed) {
+    function jbShowLoginDialog(autoLoginFailed) {
         const container = document.querySelector('.section .container');
         if (!container) return;
 
@@ -7064,51 +7110,51 @@
             if (firstText && firstText.nodeType === 3) firstText.textContent = 'Top250';
         }
 
-        if (document.querySelector('.jhs-login-panel')) return;
+        if (document.querySelector('.jb-login-panel')) return;
 
-        const savedUser = localStorage.getItem('jhs_saved_username') || '';
-        const savedPass = localStorage.getItem('jhs_saved_password') || '';
+        const savedUser = localStorage.getItem('jb_saved_username') || '';
+        const savedPass = localStorage.getItem('jb_saved_password') || '';
 
         const panel = document.createElement('div');
-        panel.className = 'jhs-login-panel';
+        panel.className = 'jb-login-panel';
         panel.style.cssText = 'max-width:400px;margin:40px auto;padding:30px;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);';
         panel.innerHTML = `
             <h3 style="margin:0 0 20px 0;color:#333;font-size:18px;text-align:center;">🔐 Top250 需要登录</h3>
             <p style="margin:0 0 15px 0;color:#666;font-size:13px;text-align:center;">该功能依赖移动端接口，请输入 JavDB 账号登录</p>
             ${autoLoginFailed ? '<p style="margin:0 0 15px 0;color:#e74c3c;font-size:13px;text-align:center;">自动登录失败，请手动登录</p>' : ''}
             <div style="margin-bottom:15px;">
-                <input type="text" id="jhs-login-user" placeholder="用户名 | 邮箱" value="${savedUser.replace(/"/g, '&quot;')}" style="width:100%;padding:12px 15px;border:1px solid #e0e0e0;border-radius:4px;box-sizing:border-box;font-size:14px;background:#f9f9f9;color:#333;">
+                <input type="text" id="jb-login-user" placeholder="用户名 | 邮箱" value="${savedUser.replace(/"/g, '&quot;')}" style="width:100%;padding:12px 15px;border:1px solid #e0e0e0;border-radius:4px;box-sizing:border-box;font-size:14px;background:#f9f9f9;color:#333;">
             </div>
             <div style="margin-bottom:15px;">
-                <input type="password" id="jhs-login-pass" placeholder="密码" value="${savedPass.replace(/"/g, '&quot;')}" style="width:100%;padding:12px 15px;border:1px solid #e0e0e0;border-radius:4px;box-sizing:border-box;font-size:14px;background:#f9f9f9;color:#333;">
+                <input type="password" id="jb-login-pass" placeholder="密码" value="${savedPass.replace(/"/g, '&quot;')}" style="width:100%;padding:12px 15px;border:1px solid #e0e0e0;border-radius:4px;box-sizing:border-box;font-size:14px;background:#f9f9f9;color:#333;">
             </div>
             <div style="margin-bottom:15px;display:flex;align-items:center;gap:6px;">
-                <input type="checkbox" id="jhs-login-remember" checked style="cursor:pointer;">
-                <label for="jhs-login-remember" style="color:#666;font-size:13px;cursor:pointer;">记住密码（下次自动登录）</label>
+                <input type="checkbox" id="jb-login-remember" checked style="cursor:pointer;">
+                <label for="jb-login-remember" style="color:#666;font-size:13px;cursor:pointer;">记住密码（下次自动登录）</label>
             </div>
-            <button id="jhs-login-btn" style="width:100%;padding:12px;background:#4a8bfc;color:white;border:none;border-radius:4px;font-size:15px;cursor:pointer;">登录</button>
-            <div id="jhs-login-msg" style="margin-top:10px;text-align:center;color:#e74c3c;font-size:13px;display:none;"></div>
+            <button id="jb-login-btn" style="width:100%;padding:12px;background:#4a8bfc;color:white;border:none;border-radius:4px;font-size:15px;cursor:pointer;">登录</button>
+            <div id="jb-login-msg" style="margin-top:10px;text-align:center;color:#e74c3c;font-size:13px;display:none;"></div>
         `;
         container.appendChild(panel);
 
-        document.getElementById('jhs-login-btn')?.addEventListener('click', async () => {
-            const username = document.getElementById('jhs-login-user')?.value?.trim();
-            const password = document.getElementById('jhs-login-pass')?.value?.trim();
-            const remember = document.getElementById('jhs-login-remember')?.checked;
-            const msgEl = document.getElementById('jhs-login-msg');
+        document.getElementById('jb-login-btn')?.addEventListener('click', async () => {
+            const username = document.getElementById('jb-login-user')?.value?.trim();
+            const password = document.getElementById('jb-login-pass')?.value?.trim();
+            const remember = document.getElementById('jb-login-remember')?.checked;
+            const msgEl = document.getElementById('jb-login-msg');
 
             if (!username || !password) {
                 if (msgEl) { msgEl.textContent = '请输入用户名和密码'; msgEl.style.display = 'block'; }
                 return;
             }
 
-            const btn = document.getElementById('jhs-login-btn');
+            const btn = document.getElementById('jb-login-btn');
             if (btn) { btn.textContent = '登录中...'; btn.disabled = true; }
 
             try {
-                const sign = jhsBuildSignature();
-                // 照搬 JAV-JHS 的登录接口：/v1/sessions，参数通过 query string 传递
-                const loginUrl = `${JHS_API_BASE}/v1/sessions?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&device_uuid=04b9534d-5118-53de-9f87-2ddded77111e&device_name=iPhone&device_model=iPhone&platform=ios&system_version=17.4&app_version=official&app_version_number=1.9.29&app_channel=official`;
+                const sign = jbBuildSignature();
+                // 照搬 JavdbBuddy 的登录接口：/v1/sessions，参数通过 query string 传递
+                const loginUrl = `${JB_API_BASE}/v1/sessions?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&device_uuid=04b9534d-5118-53de-9f87-2ddded77111e&device_name=iPhone&device_model=iPhone&platform=ios&system_version=17.4&app_version=official&app_version_number=1.9.29&app_channel=official`;
                 const res = await new Promise((resolve, reject) => {
                     GM_xmlhttpRequest({
                         method: 'POST',
@@ -7130,13 +7176,13 @@
                 });
 
                 if (res.success === 1 && res.data?.token) {
-                    localStorage.setItem('jhs_appAuthorization', res.data.token);
+                    localStorage.setItem('jb_appAuthorization', res.data.token);
                     if (remember) {
-                        localStorage.setItem('jhs_saved_username', username);
-                        localStorage.setItem('jhs_saved_password', password);
+                        localStorage.setItem('jb_saved_username', username);
+                        localStorage.setItem('jb_saved_password', password);
                     } else {
-                        localStorage.removeItem('jhs_saved_username');
-                        localStorage.removeItem('jhs_saved_password');
+                        localStorage.removeItem('jb_saved_username');
+                        localStorage.removeItem('jb_saved_password');
                     }
                     // 登录成功，刷新页面加载 Top250
                     window.location.reload();
@@ -7152,7 +7198,7 @@
     }
 
     // ---------- FC2PPV 增强 ----------
-    function jhsEnhanceFC2Page() {
+    function jbEnhanceFC2Page() {
         if (!window.location.href.includes('advanced_search?type=3')) return;
         const h2 = document.querySelector('h2.section-title');
         if (h2) {
@@ -7166,9 +7212,9 @@
         if (box) box.remove();
 
         const container = document.querySelector('.section .container');
-        if (container && !document.querySelector('.jhs-fc2-panel')) {
+        if (container && !document.querySelector('.jb-fc2-panel')) {
             const panel = document.createElement('div');
-            panel.className = 'jhs-fc2-panel';
+            panel.className = 'jb-fc2-panel';
             panel.style.cssText = 'margin: 15px 0; padding: 15px; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1);';
             panel.innerHTML = `
                 <h3 style="margin:0 0 12px 0;color:#9b59b6;font-size:16px;">🍑 FC2PPV 第三方资源</h3>
@@ -7183,28 +7229,28 @@
         }
     }
 
-    // ---------- JHS 功能启动入口 ----------
-    function jhsInit() {
-        console.log('%c✅ JAV-JHS 增强功能启动', 'color: #9b59b6; font-size: 14px; font-weight: bold;');
+    // ---------- 增强功能启动入口 ----------
+    function jbInit() {
+        console.log('%c✅ JavdbBuddy 增强功能启动', 'color: #9b59b6; font-size: 14px; font-weight: bold;');
 
-        try { jhsAddNavigation(); } catch (e) { console.error('[JHS] 导航增强失败:', e); }
-        try { jhsEnhanceFC2Page(); } catch (e) { console.error('[JHS] FC2增强失败:', e); }
-        try { jhsHandlePlaybackPage(); } catch (e) { console.error('[JHS] 热播失败:', e); }
-        try { jhsHandleTop250Page(); } catch (e) { console.error('[JHS] Top250失败:', e); }
+        try { jbAddNavigation(); } catch (e) { console.error('[JB] 导航增强失败:', e); }
+        try { jbEnhanceFC2Page(); } catch (e) { console.error('[JB] FC2增强失败:', e); }
+        try { jbHandlePlaybackPage(); } catch (e) { console.error('[JB] 热播失败:', e); }
+        try { jbHandleTop250Page(); } catch (e) { console.error('[JB] Top250失败:', e); }
 
         // 详情页：短评 + 相关清单
         if (window.location.pathname.startsWith('/v/')) {
-            jhsSetupDetailTabs();
+            jbSetupDetailTabs();
         }
     }
 
     // 设置详情页：短评 + 相关清单
     // 终极方案：彻底禁用 Stimulus movie-tab 控制器，在容器外部创建自定义标签栏
     // 核心修复：移除 data-controller 属性 → Stimulus 触发 disconnect() → 自动清除事件监听器
-    function jhsSetupDetailTabs() {
+    function jbSetupDetailTabs() {
         const movieId = window.location.href.split("/").pop().split(/[?#]/)[0];
-        if (!movieId) { console.error('[JHS] 无法提取 movieId'); return; }
-        console.log('%c[JHS] movieId:', 'color:#9b59b6;', movieId);
+        if (!movieId) { console.error('[JB] 无法提取 movieId'); return; }
+        console.log('%c[JB] movieId:', 'color:#9b59b6;', movieId);
 
         let retryCount = 0;
         const maxRetries = 80;
@@ -7214,11 +7260,11 @@
             const tabsContainer = document.getElementById('tabs-container');
             const tabsUl = document.querySelector('.tabs ul');
             if (!originalTabs || !tabsContainer || !tabsUl) {
-                if (retryCount >= maxRetries) { clearInterval(chk); console.error('[JHS] 标签容器未找到'); }
+                if (retryCount >= maxRetries) { clearInterval(chk); console.error('[JB] 标签容器未找到'); }
                 return;
             }
             clearInterval(chk);
-            console.log('%c[JHS] 标签容器就绪', 'color:#9b59b6;');
+            console.log('%c[JB] 标签容器就绪', 'color:#9b59b6;');
 
             // ① 先获取 Stimulus 控制器容器（必须在移除原始标签之前，因为移除后 originalTabs.parentElement 为 null）
             const movieTabContainer = document.querySelector('[data-controller*="movie-tab"]') || originalTabs.parentElement;
@@ -7240,27 +7286,27 @@
                 movieTabContainer.removeAttribute('data-controller');
                 movieTabContainer.querySelectorAll('[data-action]').forEach(el => el.removeAttribute('data-action'));
                 movieTabContainer.querySelectorAll('[data-movie-tab-target]').forEach(el => el.removeAttribute('data-movie-tab-target'));
-                console.log('%c[JHS] Stimulus movie-tab 控制器已禁用（disconnect 触发）', 'color:#9b59b6;');
+                console.log('%c[JB] Stimulus movie-tab 控制器已禁用（disconnect 触发）', 'color:#9b59b6;');
             }
 
             // ④ 彻底移除原始标签栏（不再仅隐藏，防止任何 JS 操作残留的原始标签）
             originalTabs.remove();
-            console.log('%c[JHS] 原始标签栏已从 DOM 移除', 'color:#9b59b6;');
+            console.log('%c[JB] 原始标签栏已从 DOM 移除', 'color:#9b59b6;');
 
             // ⑤ 在 movie-tab 控制器容器【外部】创建自定义标签栏
             // 使用 <span> 替代 <a>，避免 Turbo/Turbolinks 拦截 <a> 标签的点击事件
             const videoDetail = document.querySelector('div.video-detail') || movieTabContainer.parentElement;
             const newTabsBar = document.createElement('div');
-            newTabsBar.id = 'jhs-custom-tabs';
+            newTabsBar.id = 'jb-custom-tabs';
             newTabsBar.className = 'tabs no-bottom';
             newTabsBar.setAttribute('data-turbo', 'false');
             newTabsBar.setAttribute('data-turbolinks', 'false');
             // 注意：使用 <span> 替代 <a> 避免 Turbo 拦截，
             // 但必须加上 display:block;padding 来模拟 <a> 的样式，否则 JAVDB 的 CSS 不会应用在 span 上
             newTabsBar.innerHTML = `<ul>
-                <li class="is-active" data-jhs-tab="magnets"><span style="cursor:pointer;display:block;padding:12px 16px;">${magnetsText}</span></li>
-                <li data-jhs-tab="reviews"><span style="cursor:pointer;display:block;padding:12px 16px;">${reviewText}</span></li>
-                <li data-jhs-tab="lists"><span style="cursor:pointer;display:block;padding:12px 16px;">${listsText}</span></li>
+                <li class="is-active" data-jb-tab="magnets"><span style="cursor:pointer;display:block;padding:12px 16px;">${magnetsText}</span></li>
+                <li data-jb-tab="reviews"><span style="cursor:pointer;display:block;padding:12px 16px;">${reviewText}</span></li>
+                <li data-jb-tab="lists"><span style="cursor:pointer;display:block;padding:12px 16px;">${listsText}</span></li>
             </ul>`;
             // 插入到 video-detail 下、movieTabContainer 之前（在 Stimulus 容器外部）
             videoDetail.insertBefore(newTabsBar, movieTabContainer);
@@ -7269,25 +7315,25 @@
             // 改为在 li 本身上设置 border-bottom，添加 !important 确保不被覆盖
             const tabStyle = document.createElement('style');
             tabStyle.textContent = `
-                #jhs-custom-tabs.tabs.no-bottom ul li { border-bottom: 3px solid transparent !important; }
-                #jhs-custom-tabs.tabs.no-bottom ul li.is-active { border-bottom: 3px solid #0099e8 !important; }
-                #jhs-custom-tabs.tabs.no-bottom ul li.is-active span { color: #0099e8 !important; font-weight: 700 !important; }
+                #jb-custom-tabs.tabs.no-bottom ul li { border-bottom: 3px solid transparent !important; }
+                #jb-custom-tabs.tabs.no-bottom ul li.is-active { border-bottom: 3px solid #0099e8 !important; }
+                #jb-custom-tabs.tabs.no-bottom ul li.is-active span { color: #0099e8 !important; font-weight: 700 !important; }
             `;
             document.head.appendChild(tabStyle);
-            console.log('%c[JHS] 自定义标签栏已创建（在 movie-tab 容器外部，使用 span 替代 a）', 'color:#9b59b6;');
+            console.log('%c[JB] 自定义标签栏已创建（在 movie-tab 容器外部，使用 span 替代 a）', 'color:#9b59b6;');
 
             // ⑥ 创建短评和相关清单的内容面板（插入到 tabs-container 中）
-            const reviewPanel = document.getElementById('jhs-review-area') || (() => {
+            const reviewPanel = document.getElementById('jb-review-area') || (() => {
                 const div = document.createElement('div');
-                div.id = 'jhs-review-area';
+                div.id = 'jb-review-area';
                 div.className = 'content-panel';
                 div.style.display = 'none';
                 tabsContainer.appendChild(div);
                 return div;
             })();
-            const relatedPanel = document.getElementById('jhs-related-area') || (() => {
+            const relatedPanel = document.getElementById('jb-related-area') || (() => {
                 const div = document.createElement('div');
-                div.id = 'jhs-related-area';
+                div.id = 'jb-related-area';
                 div.className = 'content-panel';
                 div.style.display = 'none';
                 tabsContainer.appendChild(div);
@@ -7315,7 +7361,7 @@
             function switchTo(tabName) {
                 currentTab = tabName;
                 allNewTabs.forEach(t => t.classList.remove('is-active'));
-                const activeTab = newTabsBar.querySelector(`[data-jhs-tab="${tabName}"]`);
+                const activeTab = newTabsBar.querySelector(`[data-jb-tab="${tabName}"]`);
                 if (activeTab) activeTab.classList.add('is-active');
 
                 // 隐藏所有内容面板
@@ -7341,13 +7387,13 @@
                     reviewPanel.style.display = 'block';
                     if (!reviewsLoaded) {
                         reviewsLoaded = true;
-                        jhsLoadReviews(reviewPanel, movieId);
+                        jbLoadReviews(reviewPanel, movieId);
                     }
                 } else if (tabName === 'lists') {
                     relatedPanel.style.display = 'block';
                     if (!relatedLoaded) {
                         relatedLoaded = true;
-                        jhsLoadRelated(relatedPanel, movieId);
+                        jbLoadRelated(relatedPanel, movieId);
                     }
                 }
 
@@ -7366,10 +7412,10 @@
 
                     // 检查自定义标签栏的激活状态是否正确
                     const currentActive = newTabsBar.querySelector('li.is-active');
-                    if (!currentActive || currentActive.dataset.jhsTab !== expectedTab) {
-                        console.log(`[JHS] 状态被篡改，强制纠正: 期望=${expectedTab}, 实际=${currentActive?.dataset.jhsTab}`);
+                    if (!currentActive || currentActive.dataset.jbTab !== expectedTab) {
+                        console.log(`[JB] 状态被篡改，强制纠正: 期望=${expectedTab}, 实际=${currentActive?.dataset.jbTab}`);
                         allNewTabs.forEach(t => t.classList.remove('is-active'));
-                        const correctTab = newTabsBar.querySelector(`[data-jhs-tab="${expectedTab}"]`);
+                        const correctTab = newTabsBar.querySelector(`[data-jb-tab="${expectedTab}"]`);
                         if (correctTab) correctTab.classList.add('is-active');
                     }
 
@@ -7407,7 +7453,7 @@
                     e.stopPropagation();
                     e.stopImmediatePropagation();
                     if (li.classList.contains('is-active')) return; // 已经是激活标签，不重复切换
-                    switchTo(li.dataset.jhsTab);
+                    switchTo(li.dataset.jbTab);
                 }, true);
                 // span 兜底：防止某些浏览器/框架下 capture 不生效
                 const span = li.querySelector('span');
@@ -7417,7 +7463,7 @@
                         e.stopPropagation();
                         e.stopImmediatePropagation();
                         if (li.classList.contains('is-active')) return; // 已经是激活标签，不重复切换
-                        switchTo(li.dataset.jhsTab);
+                        switchTo(li.dataset.jbTab);
                     }, true);
                 }
             });
@@ -7428,7 +7474,7 @@
                 const activeLi = newTabsBar.querySelector('li.is-active');
                 if (!activeLi) {
                     // is-active 被完全清除了，恢复之
-                    const correctLi = newTabsBar.querySelector(`[data-jhs-tab="${currentTab}"]`);
+                    const correctLi = newTabsBar.querySelector(`[data-jb-tab="${currentTab}"]`);
                     if (correctLi) correctLi.classList.add('is-active');
                 }
             }
@@ -7454,19 +7500,19 @@
             if (origReviews) observer.observe(origReviews, { attributes: true, attributeFilter: ['style'] });
             if (origLists) observer.observe(origLists, { attributes: true, attributeFilter: ['style'] });
 
-            console.log('%c[JHS] 标签接管完成（Stimulus 已禁用 + 外部自定义标签栏）', 'color:#9b59b6;');
+            console.log('%c[JB] 标签接管完成（Stimulus 已禁用 + 外部自定义标签栏）', 'color:#9b59b6;');
         }, 500);
     }
 
-    // 加载评论 —— 照搬 JAV-JHS：直接请求外部API，limit=20，底部"加载更多"
-    async function jhsLoadReviews(panel, movieId) {
+    // 加载评论 —— 照搬 JavdbBuddy：直接请求外部API，limit=20，底部"加载更多"
+    async function jbLoadReviews(panel, movieId) {
         if (!panel) return;
         panel.innerHTML = '<div id="reviewsLoading" style="margin-top:15px;background-color:#ffffff;padding:10px;">获取评论中...</div>';
 
         let dataList = null;
         try {
             dataList = await Promise.race([
-                jhsApi.getReviews(movieId, 1, 20),
+                jbApi.getReviews(movieId, 1, 20),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时')), 15000))
             ]);
         } catch (e) {
@@ -7486,7 +7532,7 @@
             const retryBtn = panel.querySelector('#retryFetchReviews');
             if (retryBtn) {
                 retryBtn.addEventListener('click', () => {
-                    jhsLoadReviews(panel, movieId);
+                    jbLoadReviews(panel, movieId);
                 });
             }
             return;
@@ -7498,17 +7544,17 @@
 
         panel.innerHTML = '';
         let floorIndex = 1;
-        jhsDisplayReviews(dataList, panel, () => floorIndex++);
+        jbDisplayReviews(dataList, panel, () => floorIndex++);
 
         // 更新标签上的短评数量
-        const reviewTab = document.querySelector('#jhs-custom-tabs li[data-jhs-tab="reviews"] span');
+        const reviewTab = document.querySelector('#jb-custom-tabs li[data-jb-tab="reviews"] span');
         if (reviewTab) {
             const total = dataList.length < 20 ? dataList.length : dataList.length + '+';
             reviewTab.textContent = `短評(${total})`;
         }
 
         const reviewsFooter = document.createElement('div');
-        reviewsFooter.id = 'jhs-reviews-footer';
+        reviewsFooter.id = 'jb-reviews-footer';
         panel.appendChild(reviewsFooter);
 
         if (dataList.length === 20) {
@@ -7526,7 +7572,7 @@
                 currentPage++;
                 let moreData;
                 try {
-                    moreData = await jhsApi.getReviews(movieId, currentPage, 20);
+                    moreData = await jbApi.getReviews(movieId, currentPage, 20);
                 } catch (e) {
                     console.error('加载更多评论失败:', e);
                 } finally {
@@ -7534,7 +7580,7 @@
                     loadMoreBtn.disabled = false;
                 }
                 if (moreData) {
-                    jhsDisplayReviews(moreData, panel, () => floorIndex++);
+                    jbDisplayReviews(moreData, panel, () => floorIndex++);
                     if (moreData.length < 20) {
                         loadMoreBtn.remove();
                         const endDiv = reviewsFooter.querySelector('#reviewsEnd');
@@ -7550,7 +7596,7 @@
         }
     }
 
-    function jhsDisplayReviews(dataList, container, getFloorIndex) {
+    function jbDisplayReviews(dataList, container, getFloorIndex) {
         if (!dataList || !dataList.length) return;
         dataList.forEach(item => {
             const starsHtml = Array(item.score || 0).fill('<i class="icon-star"></i>').join('');
@@ -7570,15 +7616,15 @@
         });
     }
 
-    // 加载相关清单 —— 照搬 JAV-JHS：直接请求外部API，limit=20，底部"加载更多"
-    async function jhsLoadRelated(panel, movieId) {
+    // 加载相关清单 —— 照搬 JavdbBuddy：直接请求外部API，limit=20，底部"加载更多"
+    async function jbLoadRelated(panel, movieId) {
         if (!panel) return;
         panel.innerHTML = '<div id="relatedLoading" style="margin-top:15px;background-color:#ffffff;padding:10px;">获取清单中...</div>';
 
         let dataList = null;
         try {
             dataList = await Promise.race([
-                jhsApi.related(movieId, 1, 20),
+                jbApi.related(movieId, 1, 20),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时')), 15000))
             ]);
         } catch (e) {
@@ -7598,7 +7644,7 @@
             const retryBtn = panel.querySelector('#retryFetchRelateds');
             if (retryBtn) {
                 retryBtn.addEventListener('click', () => {
-                    jhsLoadRelated(panel, movieId);
+                    jbLoadRelated(panel, movieId);
                 });
             }
             return;
@@ -7610,10 +7656,10 @@
 
         panel.innerHTML = '';
         let floorIndex = 1;
-        jhsDisplayRelateds(dataList, panel, () => floorIndex++);
+        jbDisplayRelateds(dataList, panel, () => floorIndex++);
 
         const relatedFooter = document.createElement('div');
-        relatedFooter.id = 'jhs-related-footer';
+        relatedFooter.id = 'jb-related-footer';
         panel.appendChild(relatedFooter);
 
         if (dataList.length === 20) {
@@ -7631,7 +7677,7 @@
                 currentPage++;
                 let moreData;
                 try {
-                    moreData = await jhsApi.related(movieId, currentPage, 20);
+                    moreData = await jbApi.related(movieId, currentPage, 20);
                 } catch (e) {
                     console.error('加载更多清单失败:', e);
                 } finally {
@@ -7639,7 +7685,7 @@
                     loadMoreBtn.disabled = false;
                 }
                 if (moreData) {
-                    jhsDisplayRelateds(moreData, panel, () => floorIndex++);
+                    jbDisplayRelateds(moreData, panel, () => floorIndex++);
                     if (moreData.length < 20) {
                         loadMoreBtn.remove();
                         const endDiv = relatedFooter.querySelector('#relatedEnd');
@@ -7655,7 +7701,7 @@
         }
     }
 
-    function jhsDisplayRelateds(dataList, container, getFloorIndex) {
+    function jbDisplayRelateds(dataList, container, getFloorIndex) {
         if (!dataList || !dataList.length) return;
         dataList.forEach(item => {
             const div = document.createElement('div');
@@ -7674,7 +7720,7 @@
     // ========== [新增] 列表页链接在新窗口打开 ==========
     function applyListPageLinkTarget() {
         const enabled = GM_getValue('jb_open_in_new_tab', false);
-        document.querySelectorAll('.movie-list .item > a[href^="/v/"]').forEach(link => {
+        document.querySelectorAll('.grid-item > a[href^="/v/"], .movie-list .item > a[href^="/v/"]').forEach(link => {
             if (enabled) {
                 link.setAttribute('target', '_blank');
             } else {
@@ -7729,7 +7775,7 @@
 
     function applyListPagePopup() {
         const enabled = GM_getValue('jb_open_in_popup', false);
-        document.querySelectorAll('.movie-list .item > a[href^="/v/"]').forEach(link => {
+        document.querySelectorAll('.grid-item > a[href^="/v/"], .movie-list .item > a[href^="/v/"]').forEach(link => {
             if (link.dataset.jbPopupBound) return;
             link.dataset.jbPopupBound = '1';
             link.addEventListener('click', function popupHandler(e) {
@@ -7755,7 +7801,7 @@
         let currentSrc = '';
 
         document.addEventListener('mouseover', (e) => {
-            const cover = e.target.closest('.movie-list .item .cover img, .movie-list .item .cover-image img, .movie-list .item img[src*="/covers/"]');
+            const cover = e.target.closest('.grid-item .cover img, .grid-item .cover-image img, .grid-item img[src*="/covers/"], .movie-list .item .cover img, .movie-list .item .cover-image img, .movie-list .item img[src*="/covers/"]');
             if (!cover) {
                 // 鼠标移到非封面图区域时隐藏放大图
                 if (currentSrc) {
@@ -7777,7 +7823,7 @@
             if (!currentSrc) return;
             // 检查鼠标当前位置是否仍在封面图上，防止封面图之间的空隙导致放大图不消失
             const el = document.elementFromPoint(e.clientX, e.clientY);
-            const stillOnCover = el && el.closest('.movie-list .item .cover img, .movie-list .item .cover-image img, .movie-list .item img[src*="/covers/"]');
+            const stillOnCover = el && el.closest('.grid-item .cover img, .grid-item .cover-image img, .grid-item img[src*="/covers/"], .movie-list .item .cover img, .movie-list .item .cover-image img, .movie-list .item img[src*="/covers/"]');
             if (!stillOnCover) {
                 currentSrc = '';
                 zoomImg.classList.remove('visible');
@@ -7808,7 +7854,7 @@
         });
 
         document.addEventListener('mouseout', (e) => {
-            const cover = e.target.closest('.movie-list .item .cover img, .movie-list .item .cover-image img, .movie-list .item img[src*="/covers/"]');
+            const cover = e.target.closest('.grid-item .cover img, .grid-item .cover-image img, .grid-item img[src*="/covers/"], .movie-list .item .cover img, .movie-list .item .cover-image img, .movie-list .item img[src*="/covers/"]');
             if (!cover) return;
             currentSrc = '';
             zoomImg.classList.remove('visible');
@@ -7816,43 +7862,81 @@
     }
 
     // ========== [新增] WebDAV 备份与恢复 ==========
+    function prepareWebDAVUrl(rawUrl) {
+        let url = rawUrl.replace(/\/$/, '');
+        if (!url) return url;
+        // 对中文路径进行编码（保留 : / 等保留字符）
+        url = encodeURI(url);
+        // Alist 智能修正：默认端口5244且路径缺少 /dav/ 时自动补全
+        if (url.includes(':5244') && !url.includes('/dav/')) {
+            url = url.replace(/(:\/\/[^/]+)(\/|$)/, '$1/dav$2');
+        }
+        return url;
+    }
+
     async function testWebDAVConnection() {
-        const url = GM_getValue('jb_webdav_url', '').replace(/\/$/, '');
+        const rawUrl = GM_getValue('jb_webdav_url', '');
         const user = GM_getValue('jb_webdav_user', '');
         const pass = GM_getValue('jb_webdav_pass', '');
-        if (!url || !user) return false;
+        if (!rawUrl || !user) return { success: false, message: '配置不完整' };
 
+        const url = prepareWebDAVUrl(rawUrl);
         const auth = btoa(user + ':' + pass);
+
+        // 先尝试 PROPFIND（WebDAV 标准检测目录方法）
         try {
             await new Promise((resolve, reject) => {
                 GM_xmlhttpRequest({
-                    method: 'GET',
+                    method: 'PROPFIND',
                     url: url + '/',
                     headers: {
-                        'Authorization': 'Basic ' + auth
+                        'Authorization': 'Basic ' + auth,
+                        'Depth': '0'
                     },
                     timeout: 10000,
                     onload: (resp) => {
-                        if (resp.status >= 200 && resp.status < 300) resolve();
+                        if (resp.status === 207 || (resp.status >= 200 && resp.status < 300)) resolve();
                         else reject(new Error('HTTP ' + resp.status));
                     },
                     onerror: () => reject(new Error('请求失败')),
                     ontimeout: () => reject(new Error('超时'))
                 });
             });
-            return true;
+            return { success: true, message: '连接成功' };
         } catch (e) {
-            console.error('[JBD] WebDAV 测试连接失败:', e);
-            return false;
+            // PROPFIND 不支持（如部分 Alist），fallback 到 GET 备份文件（200/404 都算通）
+            try {
+                await new Promise((resolve, reject) => {
+                    GM_xmlhttpRequest({
+                        method: 'GET',
+                        url: url + '/javdb-buddy-backup.json',
+                        headers: {
+                            'Authorization': 'Basic ' + auth
+                        },
+                        timeout: 10000,
+                        onload: (resp) => {
+                            if (resp.status === 200 || resp.status === 404) resolve();
+                            else reject(new Error('HTTP ' + resp.status));
+                        },
+                        onerror: () => reject(new Error('请求失败')),
+                        ontimeout: () => reject(new Error('超时'))
+                    });
+                });
+                return { success: true, message: '连接成功' };
+            } catch (e2) {
+                console.error('[JBD] WebDAV 测试连接失败:', e2, '请求URL:', url + '/');
+                return { success: false, message: e2.message || '未知错误' };
+            }
         }
     }
 
     async function backupToWebDAV() {
-        const url = GM_getValue('jb_webdav_url', '').replace(/\/$/, '');
+        const rawUrl = GM_getValue('jb_webdav_url', '');
         const user = GM_getValue('jb_webdav_user', '');
         const pass = GM_getValue('jb_webdav_pass', '');
-        if (!url || !user) return false;
+        if (!rawUrl || !user) return { success: false, message: '配置不完整' };
 
+        const url = prepareWebDAVUrl(rawUrl);
         const config = {
             servers: getServers(),
             libraryIndex: LIBRARY_INDEX,
@@ -7871,31 +7955,36 @@
                     url: url + '/javdb-buddy-backup.json',
                     headers: {
                         'Authorization': 'Basic ' + auth,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/octet-stream'
                     },
                     data: json,
                     timeout: 20000,
                     onload: (resp) => {
                         if (resp.status >= 200 && resp.status < 300) resolve();
-                        else reject(new Error('HTTP ' + resp.status));
+                        else reject(new Error('HTTP ' + resp.status + ' | URL: ' + url + '/javdb-buddy-backup.json'));
                     },
-                    onerror: () => reject(new Error('请求失败')),
+                    onerror: (err) => reject(new Error('请求失败: ' + (err && err.error ? err.error : '未知错误'))),
                     ontimeout: () => reject(new Error('超时'))
                 });
             });
-            return true;
+            return { success: true, message: '备份成功' };
         } catch (e) {
-            console.error('[JBD] WebDAV 备份失败:', e);
-            return false;
+            console.error('[JBD] WebDAV 备份失败:', e, '请求URL:', url + '/javdb-buddy-backup.json');
+            let msg = e.message || '未知错误';
+            if (msg.includes('405')) {
+                msg += '（Alist 用户请检查地址是否包含 /dav/ 路径）';
+            }
+            return { success: false, message: msg };
         }
     }
 
     async function restoreFromWebDAV() {
-        const url = GM_getValue('jb_webdav_url', '').replace(/\/$/, '');
+        const rawUrl = GM_getValue('jb_webdav_url', '');
         const user = GM_getValue('jb_webdav_user', '');
         const pass = GM_getValue('jb_webdav_pass', '');
-        if (!url || !user) return false;
+        if (!rawUrl || !user) return { success: false, message: '配置不完整' };
 
+        const url = prepareWebDAVUrl(rawUrl);
         const auth = btoa(user + ':' + pass);
         try {
             const text = await new Promise((resolve, reject) => {
@@ -7934,12 +8023,19 @@
                 GM_setValue('jellyfin_last_sync', config.jellyfinLastSyncTime);
                 JELLYFIN_LAST_SYNC_TIME = config.jellyfinLastSyncTime;
             }
-            return true;
+            return { success: true, message: '恢复成功' };
         } catch (e) {
-            console.error('[JBD] WebDAV 恢复失败:', e);
-            return false;
+            console.error('[JBD] WebDAV 恢复失败:', e, '请求URL:', url + '/javdb-buddy-backup.json');
+            let msg = e.message || '未知错误';
+            if (msg.includes('405')) {
+                msg += '（Alist 用户请检查地址是否包含 /dav/ 路径）';
+            }
+            return { success: false, message: msg };
         }
     }
+
+    // 将设置对话框暴露到全局，供 initMainScript 外部访问
+    window.showSettingsDialog = showSettingsDialog;
 
     // ========== [新增] 打赏弹窗 ==========
     function showDonateDialog() {
@@ -7977,15 +8073,21 @@
         document.getElementById('jb-donate-close')?.addEventListener('click', () => overlay.remove());
     }
 
-    // 延迟启动 JHS 功能
+    // 延迟启动增强功能
     // 缩短启动延迟，配合 setInterval 轮询即可在 DOM 就绪后尽快创建自定义标签
     // 同时临时禁用原始标签点击（仅限制无 id 的 .tabs.no-bottom，不影响自定义标签）
     (document.head || document.documentElement).appendChild(Object.assign(document.createElement('style'), {
-        textContent: '.tabs.no-bottom:not(#jhs-custom-tabs) { pointer-events: none; }'
+        textContent: '.tabs.no-bottom:not(#jb-custom-tabs) { pointer-events: none; }'
     }));
-    const isJhsPage2 = window.location.search.includes('handlePlayback=1') || window.location.search.includes('handleTop=1') || window.location.search.includes('type=3');
-    setTimeout(jhsInit, isJhsPage2 ? 100 : 100);
+    const isSpecialPage2 = window.location.search.includes('handlePlayback=1') || window.location.search.includes('handleTop=1') || window.location.search.includes('type=3');
+    setTimeout(jbInit, isSpecialPage2 ? 100 : 100);
 
+        window.__jb_init_done = true;
+        console.log('[JB] initMainScript 执行完成');
+    } catch (initErr) {
+        console.error('[JB] initMainScript 执行出错:', initErr);
+        // 不设置 __jb_init_done，允许下次重试
+    }
     } // initMainScript 函数结束
 
 })();
