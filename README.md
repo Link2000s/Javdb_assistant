@@ -4,9 +4,9 @@
 [![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)](https://github.com/86168057/JavdbBuddy/releases)
 [![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-Javdb全能助手-orange)](https://greasyfork.org/scripts/564141)
 
-JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步、预览图查看、磁力链管理、多站点快捷搜索、免VIP热播/Top250/FC2PPV、全部评论、相关清单等功能。
+JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby / Jellyfin 入库状态同步、预览图查看、磁力链管理、多站点快捷搜索、免VIP热播/Top250/FC2PPV、全部评论、相关清单等功能。
 
-> **English**: JavdbBuddy - JAVDB All-in-One Assistant Tampermonkey userscript. Features: Emby library sync, preview image viewer, magnet link management, multi-site quick search, Hot/Top250/FC2PPV, all reviews, related lists, and more.
+> **English**: JavdbBuddy - JAVDB All-in-One Assistant Tampermonkey userscript. Features: Emby / Jellyfin library sync, preview image viewer, magnet link management, multi-site quick search, Hot/Top250/FC2PPV, all reviews, related lists, and more.
 
 ---
 
@@ -14,7 +14,7 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 
 | 功能 | 说明 |
 |------|------|
-| 📋 **Emby 入库状态** | 列表页/详情页实时显示影片在 Emby 服务器中的入库状态 |
+| 📋 **Emby / Jellyfin 入库状态** | 列表页/详情页实时显示影片在 Emby / Jellyfin 服务器中的入库状态 |
 | 🖼️ **预览图查看** | 一键弹窗查看所有预览大图，支持全屏浏览 |
 | 🧲 **磁力链管理** | JAVDB + JAVBUS 双标签磁力链弹窗，支持复制/下载 |
 | 👩 **演员名单** | 预览图/磁力链弹窗顶部显示完整演员名单，可点击跳转 |
@@ -67,7 +67,7 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 
 ![详情页emby入库状态标签+中多网站搜索功能展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页emby入库状态标签+中多网站搜索功能展示.png)
 
-- **Emby 状态标签**：显示该影片的 Emby 入库状态
+- **Emby / Jellyfin 状态标签**：显示该影片的 Emby / Jellyfin 入库状态
 - **多站点搜索按钮**：一键在多个平台搜索该影片
 
 ![详情页-javdb+javbus-双标签磁力页展示](https://raw.githubusercontent.com/86168057/JavdbBuddy/main/展示图/详情页-javdb+javbus-双标签磁力页展示.png)
@@ -92,12 +92,12 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 
 ---
 
-## 🔧 Emby 配置
+## 🔧 媒体服务器配置
 
 1. 点击页面右下角的 ⚙️ 设置按钮
-2. 添加 Emby 服务器地址和 API Key
-3. 点击"同步服务器"按钮，脚本将自动扫描 Emby 库建立索引
-4. 完成！列表页和详情页将显示 Emby 入库状态
+2. 选择服务器类型（Emby / Jellyfin），填写名称、地址和 API Key（支持同时配置多台服务器）
+3. 点击"同步服务器"按钮，脚本将自动扫描媒体库建立索引
+4. 完成！列表页和详情页将显示 Emby / Jellyfin 入库状态
 
 ---
 
@@ -130,9 +130,12 @@ JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby 入库状态同步
 ## 📜 更新日志
 
 ### v0.8.0
-- ✨ 新增：Emby 数据备份与恢复（支持自定义备份路径、密码加密）
-- ✨ 新增：列表页/详情页 Emby 状态角标显示数量
+- ✨ 新增：**Jellyfin 服务器支持**——实时同步入库状态，与 Emby 并列双服务器支持
+- ✨ 新增：Emby / Jellyfin 数据备份与恢复（支持自定义备份路径、密码加密）
+- ✨ 新增：列表页/详情页 Emby / Jellyfin 状态角标显示数量
 - ✨ 新增：设置界面支持主题预览、服务器配置测试
+- ✨ 新增：实时秒同步——服务器中增删媒体后页面状态实时感知，无需手动刷新
+- ✨ 新增：通用设置——支持列表页新窗口/弹窗方式打开详情页、封面悬停放大等
 - 🔧 优化：JAVBUS 无数据时统一显示「暂无数据」，角标显示 0
 - 🔧 优化：返回顶部/底部按钮与设置齿轮按钮尽早显示，避免加载延迟
 - 🔧 优化：精简 Cloudflare 检测逻辑，避免误判正常页面
