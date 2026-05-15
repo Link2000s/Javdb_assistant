@@ -719,7 +719,7 @@
                 console.error(`EMBY Checker: 同步服务器 ${server.name} 失败:`, e);
                 server.lastError = true;
                 server.statusMsg = e.toString() || '连接失败'; // 记录具体错误
-                SYNC_ERROR = `连接 ${server.name} 失败: ${server.statusMsg}`;
+                SYNC_ERROR = server.statusMsg;
             }
         }
 
@@ -1367,6 +1367,10 @@
         .emby-status.error {
             background-color: #ff9800;
             color: white;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .movie-list .item { position: relative; }
         .movie-list .item .tags .emby-status {
@@ -3691,7 +3695,7 @@
     function renderStatusMessage(statusDiv, message, type) {
         statusDiv.className = `emby-status ${type}`;
         statusDiv.textContent = message;
-        statusDiv.title = '点击打开EMBY配置';
+        statusDiv.title = message;
         statusDiv.style.cursor = 'pointer';
         statusDiv.onclick = (e) => {
             e.preventDefault(); e.stopPropagation();
@@ -3708,9 +3712,7 @@
         
         // 如果服务器已经有已知的错误，立即显示，不再等待请求
         if (firstServer.lastError && firstServer.statusMsg) {
-            let displayMsg = firstServer.statusMsg;
-            if (displayMsg === '连接超时') displayMsg = 'EMBY服务器连接超时';
-            renderStatusMessage(statusDiv, displayMsg, 'error');
+            renderStatusMessage(statusDiv, firstServer.statusMsg, 'error');
             return;
         }
 
@@ -3760,10 +3762,10 @@
                 }
             },
             onerror: function() {
-                renderStatusMessage(statusDiv, 'EMBY服务器地址错误或未连接', 'error');
+                renderStatusMessage(statusDiv, '地址错误或无法连接', 'error');
             },
             ontimeout: function() {
-                renderStatusMessage(statusDiv, 'EMBY服务器连接超时', 'error');
+                renderStatusMessage(statusDiv, '连接超时', 'error');
             }
         });
     }
@@ -3806,7 +3808,7 @@
                                 // 更新指示器文本和样式
                                 existingStatus.textContent = SYNC_ERROR;
                                 existingStatus.className = 'emby-status error';
-                                existingStatus.title = '点击打开服务器设置';
+                                existingStatus.title = SYNC_ERROR;
                                 existingStatus.style.cursor = 'pointer';
                             }
                             // 如果已经有标签了，且没有全局错误需要显示，则跳过，交给 verifyStatusBackground 处理后续更新
@@ -3829,7 +3831,7 @@
                             } else if (SYNC_ERROR) {
                                 statusDiv.className = 'emby-status error';
                                 statusDiv.textContent = SYNC_ERROR;
-                                statusDiv.title = '点击打开EMBY配置';
+                                statusDiv.title = SYNC_ERROR;
                                 statusDiv.style.cursor = 'pointer';
                                 statusDiv.onclick = (e) => {
                                     e.preventDefault(); e.stopPropagation();
