@@ -4316,8 +4316,15 @@
                         addStatusIndicator(statusWrap, videoCode, null, null, 'emby');
                         addStatusIndicator(statusWrap, videoCode, null, null, 'jellyfin');
 
-                        // 为详情页番号块添加5个网站搜索按钮
-                        if (!block.querySelector('.detail-search-panel')) {
+                        // 为详情页番号块添加网站搜索按钮
+                        // 先清理 block 后面可能残留的旧搜索面板（after 插入的是兄弟节点，querySelector 查不到）
+                        let next = block.nextElementSibling;
+                        while (next && next.classList.contains('detail-search-panel')) {
+                            const toRemove = next;
+                            next = next.nextElementSibling;
+                            toRemove.remove();
+                        }
+                        if (!block.nextElementSibling || !block.nextElementSibling.classList.contains('detail-search-panel')) {
                             const detailSearchPanel = document.createElement('div');
                             detailSearchPanel.className = 'detail-search-panel';
                             detailSearchPanel.style.cssText = 'display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;';
@@ -5601,6 +5608,7 @@
                             el.title = prefix + '未入库';
                         });
                         // 触发重新检测已入库项
+                        document.querySelectorAll('.detail-search-panel').forEach(el => el.remove());
                         document.querySelectorAll('[data-jb_processed]').forEach(el => el.removeAttribute('data-jb_processed'));
                         initCheck();
                     }
