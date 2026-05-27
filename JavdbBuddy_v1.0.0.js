@@ -2,7 +2,7 @@
 // @name         Javdb全能助手
 // @name:en      JavdbBuddy
 // @namespace    https://github.com/86168057/JavdbBuddy
-// @version      0.9.0
+// @version      1.0.0
 // @description  JAVDB 一站式增强 Tampermonkey 用户脚本，集成 Emby / Jellyfin 入库状态同步、预览图查看、磁力链管理、多站点快捷搜索、免VIP热播/Top250/FC2PPV、全部评论、相关清单等功能。
 // @description:en  JavdbBuddy - JAVDB All-in-One Assistant: Emby / Jellyfin library sync, preview images, magnet links, multi-site search, Hot/Top250/FC2PPV, all reviews, related lists
 // @description:zh-CN  JAVDB + Emby / Jellyfin 联动脚本：实时同步入库状态、预览图查看、磁力链管理、多站点搜索、免VIP热播/Top250/FC2PPV、全部评论、相关清单
