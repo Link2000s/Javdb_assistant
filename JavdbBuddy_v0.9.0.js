@@ -22,6 +22,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
+// @grant        GM_download
 // @connect      *
 // @connect      localhost
 // @connect      jdforrepam.com
@@ -29,9 +30,13 @@
 // @connect      192.168.0.0/16
 // @connect      10.0.0.0/8
 // @connect      172.16.0.0/12
+// @connect      subtitlecat.com
+// @connect      www.subtitlecat.com
 // @run-at       document-start
 // @license      MIT
 // @homepage     https://github.com/86168057/JavdbBuddy
+// @downloadURL https://update.greasyfork.org/scripts/564141/Javdb%E5%85%A8%E8%83%BD%E5%8A%A9%E6%89%8B.user.js
+// @updateURL https://update.greasyfork.org/scripts/564141/Javdb%E5%85%A8%E8%83%BD%E5%8A%A9%E6%89%8B.meta.js
 // ==/UserScript==
 
 (function() {
@@ -1101,6 +1106,7 @@
         const openInPopup = GM_getValue('jb_open_in_popup', false);
         const showEmbyStatus = GM_getValue('jb_show_emby_status', true);
         const showJellyfinStatus = GM_getValue('jb_show_jellyfin_status', true);
+        const showSubtitleSearch = GM_getValue('jb_show_subtitle_search', true);
         const webdavUrl = GM_getValue('jb_webdav_url', '');
         const webdavUser = GM_getValue('jb_webdav_user', '');
         const webdavPass = GM_getValue('jb_webdav_pass', '');
@@ -1149,6 +1155,10 @@
                                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:#555;">
                                     <input type="checkbox" id="jb-show-jellyfin-status" ${showJellyfinStatus ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;">
                                     <span>显示 Jellyfin 入库状态</span>
+                                </label>
+                                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:#555;">
+                                    <input type="checkbox" id="jb-show-subtitle-search" ${showSubtitleSearch ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;">
+                                    <span>启用字幕搜索</span>
                                 </label>
                             </div>
                         </div>
@@ -1529,6 +1539,10 @@
             GM_setValue('jb_show_jellyfin_status', e.target.checked);
             refreshStatusIndicators();
         });
+        document.getElementById('jb-show-subtitle-search')?.addEventListener('change', (e) => {
+            GM_setValue('jb_show_subtitle_search', e.target.checked);
+            refreshSubtitleIndicators();
+        });
 
         // WebDAV 配置保存
         document.getElementById('jb-webdav-save-btn')?.addEventListener('click', () => {
@@ -1703,6 +1717,171 @@
             flex-shrink: 0 !important;
             min-width: fit-content !important;
         }
+        .panel-block .value {
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+            min-width: max-content !important;
+        }
+        /* 字幕状态标签 */
+        .subtitle-status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            vertical-align: middle;
+            line-height: 1.5;
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+            cursor: pointer;
+        }
+        .subtitle-status.has-sub {
+            background-color: #2196F3;
+            color: white;
+        }
+        .subtitle-status.no-sub {
+            background-color: #9e9e9e;
+            color: white;
+        }
+        .subtitle-status.searching {
+            background-color: #ffc107;
+            color: #333;
+        }
+        /* 字幕结果弹窗 */
+        .subtitle-modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .subtitle-modal-window {
+            background: #fff;
+            color: #333;
+            border-radius: 8px;
+            width: 600px;
+            max-height: 70vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-family: sans-serif;
+            border: 1px solid #e0e0e0;
+        }
+        .subtitle-modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .subtitle-modal-header span { font-size: 16px; font-weight: bold; }
+        .subtitle-modal-close {
+            cursor: pointer; font-size: 24px; color: #999; line-height: 1;
+        }
+        .subtitle-modal-body {
+            padding: 15px 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .subtitle-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+        .subtitle-item:hover {
+            border-color: #2196F3;
+            background: #f5f9ff;
+        }
+        .subtitle-item-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+        .subtitle-item-meta {
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .subtitle-item-source {
+            color: #2196F3;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        .subtitle-item a {
+            color: #2196F3;
+            text-decoration: none;
+        }
+        .subtitle-item a:hover {
+            text-decoration: underline;
+        }
+        /* 暗色模式适配 */
+        html.is-dark .subtitle-modal-window,
+        html.dark .subtitle-modal-window,
+        body.is-dark .subtitle-modal-window,
+        body.dark .subtitle-modal-window,
+        [data-theme="dark"] .subtitle-modal-window {
+            background: #1e1e1e !important;
+            color: #e0e0e0 !important;
+            border-color: #333 !important;
+        }
+        html.is-dark .subtitle-modal-header,
+        html.dark .subtitle-modal-header,
+        body.is-dark .subtitle-modal-header,
+        body.dark .subtitle-modal-header,
+        [data-theme="dark"] .subtitle-modal-header {
+            border-bottom-color: #333 !important;
+        }
+        html.is-dark .subtitle-modal-close,
+        html.dark .subtitle-modal-close,
+        body.is-dark .subtitle-modal-close,
+        body.dark .subtitle-modal-close,
+        [data-theme="dark"] .subtitle-modal-close {
+            color: #aaa !important;
+        }
+        html.is-dark .subtitle-item,
+        html.dark .subtitle-item,
+        body.is-dark .subtitle-item,
+        body.dark .subtitle-item,
+        [data-theme="dark"] .subtitle-item {
+            border-color: #333 !important;
+            background: #2a2a2a !important;
+        }
+        html.is-dark .subtitle-item:hover,
+        html.dark .subtitle-item:hover,
+        body.is-dark .subtitle-item:hover,
+        body.dark .subtitle-item:hover,
+        [data-theme="dark"] .subtitle-item:hover {
+            border-color: #2196F3 !important;
+            background: #1a2733 !important;
+        }
+        html.is-dark .subtitle-item-name,
+        html.dark .subtitle-item-name,
+        body.is-dark .subtitle-item-name,
+        body.dark .subtitle-item-name,
+        [data-theme="dark"] .subtitle-item-name {
+            color: #e0e0e0 !important;
+        }
+        html.is-dark .subtitle-item-meta,
+        html.dark .subtitle-item-meta,
+        body.is-dark .subtitle-item-meta,
+        body.dark .subtitle-item-meta,
+        [data-theme="dark"] .subtitle-item-meta {
+            color: #aaa !important;
+        }
+        html.is-dark .subtitle-item-source,
+        html.dark .subtitle-item-source,
+        body.is-dark .subtitle-item-source,
+        body.dark .subtitle-item-source,
+        [data-theme="dark"] .subtitle-item-source {
+            color: #64b5f6 !important;
+        }
         .emby-status.exists {
             background-color: #4CAF50;
             color: white;
@@ -1751,11 +1930,12 @@
         .emby-tools-row .preview-toggle-btn, 
         .emby-tools-row .magnet-toggle-btn,
         .emby-tools-row .review-toggle-btn,
-        .emby-tools-row .copy-code-btn {
+        .emby-tools-row .copy-code-btn,
+        .emby-tools-row .jb-subtitle-btn {
             margin: 0 !important;
-            padding: 2px 6px !important; /* 缩小内边距 */
-            font-size: clamp(9px, 1.2vw, 12px) !important;  /* 响应式字体，最小9px，最大12px */
-            height: auto !important;     /* 取消固定高度，让文字撑开 */
+            padding: 2px 6px !important;
+            font-size: clamp(9px, 1.2vw, 12px) !important;
+            height: auto !important;
             min-height: 20px !important;
             line-height: 1.4 !important;
             white-space: nowrap;
@@ -1766,9 +1946,10 @@
             .emby-tools-row .preview-toggle-btn,
             .emby-tools-row .magnet-toggle-btn,
             .emby-tools-row .review-toggle-btn,
-            .emby-tools-row .copy-code-btn {
+            .emby-tools-row .copy-code-btn,
+            .emby-tools-row .jb-subtitle-btn {
                 font-size: 9px !important;
-                padding: 1px 4px !important;
+                padding: 1px 3px !important;
             }
         }
         
@@ -2209,6 +2390,194 @@
         }
     `;
     document.head.appendChild(style);
+
+    // ========== 字幕搜索功能 ==========
+    // 缓存搜索结果避免重复请求
+    const SUBTITLE_CACHE = {};
+
+    function searchSubtitles(videoCode, callback) {
+        if (!videoCode) { callback([]); return; }
+        const cacheKey = videoCode.toUpperCase();
+        if (SUBTITLE_CACHE[cacheKey] !== undefined) {
+            callback(SUBTITLE_CACHE[cacheKey]);
+            return;
+        }
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: `https://www.subtitlecat.com/index.php?search=${encodeURIComponent(videoCode)}`,
+            headers: { 'Accept': 'text/html', 'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8' },
+            timeout: 15000,
+            onload: function(response) {
+                const html = response.responseText || '';
+                const results = [];
+                const rowRegex = /<tr[^>]*>[\s\S]*?<\/tr>/g;
+                const rows = html.match(rowRegex) || [];
+                rows.forEach(row => {
+                    const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g) || [];
+                    if (cells.length >= 4) {
+                        const nameMatch = cells[0].match(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/);
+                        if (nameMatch) {
+                            const subName = nameMatch[2].trim();
+                            const source = (cells[0].match(/\(translated from ([^)]+)\)/) || [])[1] || '';
+                            // 只保留文件名包含当前番号的字幕
+                            if (subName.toUpperCase().includes(cacheKey)) {
+                                // 尝试提取语言信息（保留 img 的 alt/title）
+                                let langs = '';
+                                const langMatches = cells[3].match(/alt="([^"]+)"|title="([^"]+)"/g);
+                                if (langMatches) {
+                                    langs = langMatches.map(m => m.match(/"([^"]+)"/)?.[1] || '').filter(Boolean).join(', ');
+                                }
+                                if (!langs) {
+                                    langs = cells[3].replace(/<[^>]+>/g, '').trim();
+                                }
+                                const lowerLangs = langs.toLowerCase();
+                                const isChinese = source === 'Chinese' ||
+                                    lowerLangs.includes('chinese') || lowerLangs.includes('中文') ||
+                                    lowerLangs.includes('zh-cn') || lowerLangs.includes('zh-tw') ||
+                                    lowerLangs.includes('简体') || lowerLangs.includes('繁体');
+                                // 只展示包含中文的字幕
+                                if (isChinese) {
+                                    results.push({
+                                        url: 'https://www.subtitlecat.com/' + nameMatch[1],
+                                        name: subName,
+                                        source: source,
+                                        size: cells[1].replace(/<[^>]+>/g, '').trim(),
+                                        downloads: cells[2].replace(/<[^>]+>/g, '').trim(),
+                                        languages: langs
+                                    });
+                                }
+                            }
+                        }
+                    }
+                });
+                SUBTITLE_CACHE[cacheKey] = results;
+                callback(results);
+            },
+            onerror: function() { callback([]); },
+            ontimeout: function() { callback([]); }
+        });
+    }
+
+    function downloadSubtitle(detailUrl, videoCode) {
+        // 先弹出提示，让用户知道正在处理
+        const toast = document.createElement('div');
+        toast.textContent = '正在获取下载链接...';
+        toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 16px;border-radius:4px;z-index:9999999;font-size:13px;white-space:nowrap;';
+        document.body.appendChild(toast);
+
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: detailUrl,
+            headers: { 'Accept': 'text/html' },
+            timeout: 15000,
+            onload: function(response) {
+                toast.remove();
+                const html = response.responseText || '';
+                let downloadPath = '';
+
+                // 方式1: 找所有 .srt 链接，优先选包含中文标识的
+                const srtMatches = html.match(/href="([^"]+\.srt)"/g) || [];
+                for (const match of srtMatches) {
+                    const path = match.match(/href="([^"]+)"/)?.[1];
+                    if (!path) continue;
+                    const idx = html.indexOf(match);
+                    const nearby = html.substring(Math.max(0, idx - 300), idx + 50).toLowerCase();
+                    if (nearby.includes('chinese') || nearby.includes('zh-cn') || nearby.includes('zh-tw') || nearby.includes('中文') || nearby.includes('简体') || nearby.includes('繁体')) {
+                        downloadPath = path;
+                        break;
+                    }
+                }
+
+                // 方式2: 如果没找到中文标识的，取第一个 .srt 链接
+                if (!downloadPath && srtMatches.length > 0) {
+                    downloadPath = srtMatches[0].match(/href="([^"]+)"/)?.[1];
+                }
+
+                // 方式3: 尝试匹配 markdown 格式 [Download](...)
+                if (!downloadPath) {
+                    const mdMatch = html.match(/\[Download\]\(([^)]+\.srt)\)/);
+                    if (mdMatch) downloadPath = mdMatch[1];
+                }
+
+                if (downloadPath) {
+                    const fullUrl = downloadPath.startsWith('http') ? downloadPath : 'https://www.subtitlecat.com' + downloadPath;
+                    // 用 iframe 方式触发下载，避免弹窗拦截
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = fullUrl;
+                    document.body.appendChild(iframe);
+                    setTimeout(() => {
+                        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                    }, 5000);
+                } else {
+                    // 未找到直接下载链接，打开详情页让用户手动下载
+                    window.open(detailUrl, '_blank');
+                }
+            },
+            onerror: function() {
+                toast.remove();
+                window.open(detailUrl, '_blank');
+            },
+            ontimeout: function() {
+                toast.remove();
+                window.open(detailUrl, '_blank');
+            }
+        });
+    }
+
+    function showSubtitleResults(videoCode, results, isSearching) {
+        let overlay = document.getElementById('subtitle-modal-overlay');
+        if (overlay) overlay.remove();
+        overlay = document.createElement('div');
+        overlay.id = 'subtitle-modal-overlay';
+        overlay.className = 'subtitle-modal-overlay';
+        let bodyHtml = '';
+        if (isSearching) {
+            bodyHtml = `<div style="text-align:center;padding:40px;color:#999;">
+                <div style="font-size:32px;margin-bottom:15px;">⏳</div>
+                <div style="font-size:15px;">正在搜索 ${videoCode} 的字幕...</div>
+            </div>`;
+        } else if (!results || results.length === 0) {
+            bodyHtml = `<div style="text-align:center;padding:30px;color:#999;">
+                <div style="font-size:48px;margin-bottom:10px;">😿</div>
+                <div style="font-size:16px;margin-bottom:8px;">未找到字幕</div>
+                <div style="font-size:13px;">没有搜索到 ${videoCode} 的中文字幕</div>
+            </div>`;
+        } else {
+            const count = results.length;
+            bodyHtml = `<div style="margin-bottom:10px;font-size:13px;color:#666;">找到 ${count} 个字幕（${videoCode}）</div>`;
+            results.forEach(item => {
+                const langText = item.languages || (item.source ? item.source : '未知语言');
+                const sourceText = item.source ? `翻译来源: ${item.source}` : '';
+                bodyHtml += `
+                <div class="subtitle-item">
+                    <div class="subtitle-item-name">${item.name}</div>
+                    <div class="subtitle-item-meta">
+                        <span>📦 ${item.size || '未知大小'}</span>
+                        <span>⬇️ ${item.downloads || '0 downloads'}</span>
+                        <span>🌐 ${langText}</span>
+                    </div>
+                    ${sourceText ? `<div class="subtitle-item-source">${sourceText}</div>` : ''}
+                    <button class="subtitle-download-btn" data-url="${item.url}" data-code="${videoCode}" style="margin-top:8px;padding:5px 14px;background:#2196F3;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:500;">📥 下载字幕</button>
+                </div>`;
+            });
+        }
+        overlay.innerHTML = `
+            <div class="subtitle-modal-window">
+                <div class="subtitle-modal-header">
+                    <span>字幕搜索结果</span>
+                    <span class="subtitle-modal-close">&times;</span>
+                </div>
+                <div class="subtitle-modal-body">${bodyHtml}</div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.querySelector('.subtitle-modal-close').onclick = () => overlay.remove();
+        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+        overlay.querySelectorAll('.subtitle-download-btn').forEach(btn => {
+            btn.onclick = () => downloadSubtitle(btn.dataset.url, btn.dataset.code);
+        });
+    }
 
     // 状态显示逻辑
     function addStatusIndicator(container, videoCode, itemEl = null, insertBefore = null, serverType = 'emby') {
@@ -4096,18 +4465,6 @@
             e.preventDefault(); e.stopPropagation();
             window.open(`${finalUrl}${detailPath}`, '_blank');
         };
-
-        // 添加提示文字（仅详情页）
-        if (window.location.pathname.startsWith('/v/')) {
-            const wrap = statusDiv.parentElement;
-            if (wrap && !wrap.querySelector('.emby-status-hint')) {
-                const hint = document.createElement('span');
-                hint.className = 'emby-status-hint';
-                hint.style.cssText = 'font-size: 11px; color: #999; margin-left: 4px; line-height: 1.4; white-space: nowrap;';
-                hint.textContent = `ℹ️ 点击标签可直接跳转到 ${serverType === 'emby' ? 'Emby' : 'Jellyfin'} 服务器中的媒体页面`;
-                wrap.appendChild(hint);
-            }
-        }
     }
 
     function renderNotExists(statusDiv, serverType = 'emby') {
@@ -4295,11 +4652,19 @@
 
                     if (val) {
                         foundCode = true;
+
+                        // 强制番号不换行、不被flex压缩，从根源解决竖排问题
+                        val.style.whiteSpace = 'nowrap';
+                        val.style.flexShrink = '0';
+                        val.style.minWidth = 'max-content';
+                        val.style.display = 'inline-block';
+                        val.style.wordBreak = 'keep-all';
+                        block.style.flexWrap = 'wrap';
+
                         const videoCode = val.textContent.trim().replace(/[^\w\-]/g, '');
 
                         // 清理已存在的容器和提示（防止重复添加）
                         block.querySelectorAll('.emby-status-wrap').forEach(el => el.remove());
-                        block.querySelectorAll('.emby-status-hint').forEach(el => el.remove());
 
                         const copyBtn = block.querySelector('.copy-to-clipboard');
 
@@ -4315,6 +4680,32 @@
                         }
                         addStatusIndicator(statusWrap, videoCode, null, null, 'emby');
                         addStatusIndicator(statusWrap, videoCode, null, null, 'jellyfin');
+
+                        // 详情页字幕状态标签
+                        if (GM_getValue('jb_show_subtitle_search', true)) {
+                            const subBtn = document.createElement('span');
+                            subBtn.className = 'subtitle-status searching';
+                            subBtn.textContent = '🔄 字幕';
+                            subBtn.title = '正在搜索字幕...';
+                            statusWrap.appendChild(subBtn);
+                            searchSubtitles(videoCode, (results) => {
+                                if (!subBtn.isConnected) return;
+                                if (results.length > 0) {
+                                    subBtn.className = 'subtitle-status has-sub';
+                                    subBtn.textContent = `🈶 字幕(${results.length})`;
+                                    subBtn.title = `点击查看 ${results.length} 个字幕结果`;
+                                } else {
+                                    subBtn.className = 'subtitle-status no-sub';
+                                    subBtn.textContent = '❌ 无字幕';
+                                    subBtn.title = '点击查看搜索结果';
+                                }
+                                subBtn.onclick = (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    showSubtitleResults(videoCode, results);
+                                };
+                            });
+                        }
 
                         // 为详情页番号块添加网站搜索按钮
                         // 先清理 block 后面可能残留的旧搜索面板（after 插入的是兄弟节点，querySelector 查不到）
@@ -4426,6 +4817,24 @@
                     addMagnetToggle(toolsRow, item, code);
                 }
 
+                // 列表页字幕搜索按钮（无论 toolsRow 是否刚创建，都检查并添加）
+                if (GM_getValue('jb_show_subtitle_search', true) && toolsRow && !toolsRow.querySelector('.jb-subtitle-btn')) {
+                    const subBtn = document.createElement('button');
+                    subBtn.className = 'jb-subtitle-btn';
+                    subBtn.textContent = '字幕';
+                    subBtn.title = '点击搜索字幕';
+                    subBtn.style.cssText = 'padding: 2px 8px; background-color: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: 500; white-space: nowrap;';
+                    subBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showSubtitleResults(code, null, true);
+                        searchSubtitles(code, (results) => {
+                            showSubtitleResults(code, results);
+                        });
+                    });
+                    toolsRow.appendChild(subBtn);
+                }
+
                 // 4. 搜索按钮（另起一行）
                 if (!toolsContainer.querySelector('.list-search-panel')) {
                     addListPageSearchButtons(toolsContainer, code);
@@ -4469,6 +4878,22 @@
         // 但需要先清理详情页已存在的旧搜索面板，避免重复
         if (showEmby || showJellyfin) {
             // 清理详情页已存在的旧搜索面板（防止重新扫描时重复创建）
+            document.querySelectorAll('.detail-search-panel').forEach(el => el.remove());
+            document.querySelectorAll('[data-jb_processed]').forEach(el => {
+                el.removeAttribute('data-jb_processed');
+            });
+            initCheck();
+        }
+    }
+
+    function refreshSubtitleIndicators() {
+        const showSubtitle = GM_getValue('jb_show_subtitle_search', true);
+        if (!showSubtitle) {
+            document.querySelectorAll('.subtitle-status').forEach(el => el.remove());
+            document.querySelectorAll('.jb-subtitle-btn').forEach(el => el.remove());
+        } else {
+            // 清除字幕缓存（避免旧缓存影响重新扫描结果）
+            Object.keys(SUBTITLE_CACHE).forEach(k => delete SUBTITLE_CACHE[k]);
             document.querySelectorAll('.detail-search-panel').forEach(el => el.remove());
             document.querySelectorAll('[data-jb_processed]').forEach(el => {
                 el.removeAttribute('data-jb_processed');
